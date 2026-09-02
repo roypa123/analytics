@@ -3,6 +3,11 @@
 // function is pure, dependency-free, and narrows `unknown` to a real type
 // instead of casting it.
 
+// Shared with react-hook-form's `pattern` rule on auth forms (Rule R-14):
+// a frontend-side format check, independent of and no substitute for the
+// backend's authoritative `EmailStr` validation (Part 4 §4.13).
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function asOneOf<T extends readonly string[]>(
   value: unknown,
   allowed: T,

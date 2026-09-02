@@ -15,6 +15,7 @@ import { Logo } from "@/components/illustrations/logo"
 import { useLogin } from "@/hooks/mutations/use-login"
 import { fadeUp } from "@/lib/motion"
 import { loginRoute } from "@/routing/routes/login.route"
+import { EMAIL_PATTERN } from "@/utils/validation"
 
 type AccountType = "individual" | "organisation"
 
@@ -132,6 +133,7 @@ export function LoginPage() {
                           accountType === "organisation"
                             ? "Organisation is required"
                             : false,
+                        maxLength: { value: 200, message: "Must be 200 characters or fewer" },
                       })}
                     />
                     {errors.organisationName && (
@@ -147,7 +149,10 @@ export function LoginPage() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    {...register("email", { required: "Email is required" })}
+                    {...register("email", {
+                      required: "Email is required",
+                      pattern: { value: EMAIL_PATTERN, message: "Enter a valid email address" },
+                    })}
                   />
                   {errors.email && (
                     <p className="text-sm text-destructive">{errors.email.message}</p>

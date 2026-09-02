@@ -632,7 +632,7 @@ The brief asks which layer contains what. Consolidated:
 | Responsibility | Layer | Notes |
 | --- | --- | --- |
 | HTTP routing, methods, status codes | **Router** | |
-| Request parsing & validation | **Router** (via Pydantic schema) | Structural validation only |
+| Request parsing & validation | **Router** (via Pydantic schema) | Structural validation only — Rule R-14: this is the authoritative check, independent of and never replaced by any validation the frontend also does (Part 7 §7.2) |
 | Business-rule validation | **Service** | "date range exceeds plan limit" is not a schema concern |
 | Response serialization | **Router** (via `response_model`) | |
 | Authentication (who are you) | **Middleware + Dependency** | §4.14 |

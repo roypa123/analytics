@@ -100,6 +100,20 @@ Form validation uses **react-hook-form's built-in rules** (`required`,
 `pattern`, `min`, `validate`) rather than a resolver. Sufficient for the forms
 this product has: login, property settings, goal definitions, invitations.
 
+> **Rule R-14.** Every field gets validated on the frontend **and** the
+> backend, independently. The two are not the same check duplicated for
+> style — they serve different purposes and neither can substitute for the
+> other. Frontend rules (react-hook-form's `required`/`pattern`/`minLength`,
+> the hand-written validators above) exist for **UX**: instant feedback
+> without a round trip, and they are trivially bypassed (disabled JS, a raw
+> `curl` to the API, a modified request). Backend validation (the Pydantic
+> schema at the router, per Part 4 §4.13) is what actually protects the data
+> — it is the only check that cannot be skipped by the client. Concretely:
+> a password's `minLength: 12` in `register-page.tsx`'s form rules and
+> `Field(min_length=12)` in `RegisterRequest` (`app/schemas/auth.py`) are
+> **two separate assertions of the same constraint**, not one implemented
+> twice by accident — deleting either one is a regression, not cleanup.
+
 **Framer Motion**, per D-24, for the visual-design pass covering the marketing
 landing page, the auth pages, and the dashboard shell's entrance/transition
 motion. See §7.17 for where it lives and how it is bounded.

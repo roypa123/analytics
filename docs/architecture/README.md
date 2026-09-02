@@ -101,6 +101,7 @@ consequences are traceable.
 | R-11 | Every subscription state transition is guarded by a monotonic timestamp check | Part 12 §12.9 |
 | R-12 | Nightly reconciliation of local billing state against Razorpay | Part 12 §12.10 |
 | R-13 | Every screen must be fully usable at desktop, tablet, and mobile widths — no exceptions for the dashboard | Part 7 §7.18 |
+| R-14 | Every field is validated on the frontend **and** the backend, independently — frontend validation is a UX convenience only, never a substitute for backend validation | Part 4 §4.13, Part 7 §7.2 |
 
 ## Action register
 

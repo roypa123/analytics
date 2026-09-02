@@ -71,9 +71,6 @@ export function LandingPage() {
               <Button render={<Link to="/register" />} size="lg">
                 Get started
               </Button>
-              <Button render={<Link to="/login" />} size="lg" variant="outline">
-                Sign in
-              </Button>
             </motion.div>
           </motion.div>
 

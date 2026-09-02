@@ -14,6 +14,7 @@ import { GridGlow } from "@/components/illustrations/grid-glow"
 import { Logo } from "@/components/illustrations/logo"
 import { useRegister } from "@/hooks/mutations/use-register"
 import { fadeUp } from "@/lib/motion"
+import { EMAIL_PATTERN } from "@/utils/validation"
 
 type AccountType = "individual" | "organisation"
 
@@ -130,6 +131,7 @@ export function RegisterPage() {
                           accountType === "organisation"
                             ? "Organisation name is required"
                             : false,
+                        maxLength: { value: 200, message: "Must be 200 characters or fewer" },
                       })}
                     />
                     {errors.organisationName && (
@@ -144,7 +146,10 @@ export function RegisterPage() {
                   <Input
                     id="fullName"
                     autoComplete="name"
-                    {...register("fullName", { required: "Full name is required" })}
+                    {...register("fullName", {
+                      required: "Full name is required",
+                      maxLength: { value: 200, message: "Must be 200 characters or fewer" },
+                    })}
                   />
                   {errors.fullName && (
                     <p className="text-sm text-destructive">{errors.fullName.message}</p>
@@ -156,7 +161,10 @@ export function RegisterPage() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    {...register("email", { required: "Email is required" })}
+                    {...register("email", {
+                      required: "Email is required",
+                      pattern: { value: EMAIL_PATTERN, message: "Enter a valid email address" },
+                    })}
                   />
                   {errors.email && (
                     <p className="text-sm text-destructive">{errors.email.message}</p>
