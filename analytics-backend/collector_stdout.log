@@ -1,0 +1,4 @@
+INFO:     127.0.0.1:52604 - "POST /event HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52605 - "OPTIONS /event HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52618 - "POST /event HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52718 - "POST /event HTTP/1.1" 204 No Content
