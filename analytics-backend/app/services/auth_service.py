@@ -46,6 +46,7 @@ class AuthService:
         email: str,
         password: str,
         full_name: str,
+        organisation_name: str,
         user_agent: str | None,
         ip_hash: bytes | None,
     ) -> AuthResult:
@@ -62,8 +63,13 @@ class AuthService:
 
             # Part 8 §8.8 — solo signup: auto-create the workspace, make the
             # new account its owner. No "personal account" special case (D-19).
+            # The organisation name is collected on this form rather than
+            # derived from full_name; an invited teammate registering to
+            # accept an invitation never sees this field and never gets a
+            # workspace created here (§8.8 "Adding a teammate" — still pending
+            # implementation, tracked separately from this endpoint).
             workspace = await self._workspaces.create(
-                name=f"{full_name}'s Workspace", slug=slugify(full_name)
+                name=organisation_name, slug=slugify(organisation_name)
             )
             await self._memberships.add(
                 workspace_id=workspace.id, account_id=account.id, role="owner"

@@ -10,6 +10,9 @@ class RegisterRequest(CamelModel):
     email: EmailStr
     password: str = Field(min_length=12)
     full_name: str = Field(min_length=1, max_length=200)
+    # Part 8 §8.1, §8.8 — collected explicitly rather than derived from
+    # full_name; becomes the auto-created workspace's display name.
+    organisation_name: str = Field(min_length=1, max_length=200)
 
 
 class LoginRequest(CamelModel):

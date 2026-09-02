@@ -68,7 +68,7 @@ export function LandingPage() {
               workspace — without third-party cookies and without the wait.
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-3">
-              <Button render={<Link to="/login" />} size="lg">
+              <Button render={<Link to="/register" />} size="lg">
                 Get started
               </Button>
               <Button render={<Link to="/login" />} size="lg" variant="outline">

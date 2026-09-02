@@ -446,16 +446,27 @@ endpoint that doesn't."
 
 ### Solo signup (B2C)
 
-1. Register → email verification.
-2. **A workspace is auto-created** (`"<Name>'s Workspace"`, plan `free`) with
-   the account as `owner`. The user never sees the word "workspace" in this
-   flow.
+> **Decision D-25.** The standalone registration form asks for an
+> **"Organisation name"** field. It is a required input on `POST
+> /auth/register`, alongside email, password, and full name, and becomes the
+> workspace's `name` directly (no more deriving it as `"<full_name>'s
+> Workspace"`). A teammate registering to accept an invitation (§8.8 "Adding a
+> teammate," below) never sees this field and never causes a workspace to be
+> created — they are joining one that already exists.
+
+1. Register (email, password, full name, **organisation name**) → email
+   verification.
+2. **A workspace is created** using the submitted organisation name, plan
+   `free`, with the account as `owner`.
 3. Create first property → tracking snippet → install verification.
 4. The members and permissions UI is **hidden** while the workspace has one
    seat and the plan has no seat entitlement (Part 12).
 
-The user experiences a single-player product. The multi-tenant model is present
-but invisible — which is exactly D-19's point.
+The user still experiences a single-player product — inviting a second member
+is the entire B2C→B2B upgrade, per D-19 — but the tenancy noun is surfaced
+under a friendlier name ("organisation") rather than hidden outright. This is
+a UI/copy choice, not a schema change: the underlying table stays
+`core.workspaces`.
 
 ### Adding a teammate (B2C → B2B)
 
@@ -466,7 +477,15 @@ but invisible — which is exactly D-19's point.
 3. `core.invitations` row created with `property_grants`; email sent with a
    single-use token.
 4. Acceptance: if the email has an account, log in and accept; otherwise
-   register first. On acceptance, in **one transaction**: create the
+   register first. This "register first" step is **not** the standalone
+   signup form (D-25) — it must not collect or require an organisation name,
+   and must not create a workspace, since the invited person is joining the
+   inviting workspace, not founding one. The invitation-flow registration
+   endpoint/route is still unbuilt (tracked as open work alongside the rest
+   of this section), but this constraint is recorded now so the two
+   registration entry points are never accidentally merged into one form that
+   always asks for an organisation name.
+5. On acceptance, in **one transaction**: create the
    `memberships` row, materialize every `property_access` row from
    `property_grants`, mark the invitation accepted, and bump the seat count on
    the subscription (Part 12 §12.6).

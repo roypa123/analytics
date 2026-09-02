@@ -10,30 +10,34 @@ import { isApiError } from "@/api/errors"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { GridGlow } from "@/components/illustrations/grid-glow"
 import { Logo } from "@/components/illustrations/logo"
-import { useLogin } from "@/hooks/mutations/use-login"
+import { useRegister } from "@/hooks/mutations/use-register"
 import { fadeUp } from "@/lib/motion"
-import { loginRoute } from "@/routing/routes/login.route"
 
-interface LoginFormValues {
+interface RegisterFormValues {
+  organisationName: string
+  fullName: string
   email: string
   password: string
 }
 
-export function LoginPage() {
+// Part 8 §8.1, §8.8 — the standalone signup path (as opposed to a teammate
+// registering to accept an invitation, which does not exist as a route yet
+// and never shows this field): collects the organisation name explicitly
+// rather than deriving a hidden workspace name from full_name.
+export function RegisterPage() {
   const reduceMotion = useReducedMotion()
   const navigate = useNavigate()
-  const search = loginRoute.useSearch()
-  const login = useLogin()
+  const registerAccount = useRegister()
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>()
+  } = useForm<RegisterFormValues>()
 
   const onSubmit = handleSubmit((values) => {
-    login.mutate(values, {
+    registerAccount.mutate(values, {
       onSuccess: () => {
-        void navigate({ to: search.redirect ?? "/dashboard" })
+        void navigate({ to: "/dashboard" })
       },
     })
   })
@@ -75,11 +79,40 @@ export function LoginPage() {
           </Link>
           <Card className="w-full">
             <CardHeader>
-              <CardTitle>Sign in</CardTitle>
-              <CardDescription>Access your analytics workspace.</CardDescription>
+              <CardTitle>Create your workspace</CardTitle>
+              <CardDescription>
+                Start tracking your sites — free, no credit card required.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={onSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="organisationName">Organisation name</Label>
+                  <Input
+                    id="organisationName"
+                    autoComplete="organization"
+                    placeholder="Acme Inc."
+                    {...register("organisationName", {
+                      required: "Organisation name is required",
+                    })}
+                  />
+                  {errors.organisationName && (
+                    <p className="text-sm text-destructive">
+                      {errors.organisationName.message}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="fullName">Full name</Label>
+                  <Input
+                    id="fullName"
+                    autoComplete="name"
+                    {...register("fullName", { required: "Full name is required" })}
+                  />
+                  {errors.fullName && (
+                    <p className="text-sm text-destructive">{errors.fullName.message}</p>
+                  )}
+                </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -97,25 +130,31 @@ export function LoginPage() {
                   <Input
                     id="password"
                     type="password"
-                    autoComplete="current-password"
-                    {...register("password", { required: "Password is required" })}
+                    autoComplete="new-password"
+                    {...register("password", {
+                      required: "Password is required",
+                      minLength: { value: 12, message: "Password must be at least 12 characters" },
+                    })}
                   />
                   {errors.password && (
                     <p className="text-sm text-destructive">{errors.password.message}</p>
                   )}
                 </div>
-                {/* Part 8 §8.4 — generic message; never confirm which field was wrong */}
-                {isApiError(login.error) && (
-                  <p className="text-sm text-destructive">Invalid email or password.</p>
+                {isApiError(registerAccount.error) && (
+                  <p className="text-sm text-destructive">
+                    {registerAccount.error.code === "email_taken"
+                      ? "An account with this email already exists."
+                      : "Something went wrong. Please try again."}
+                  </p>
                 )}
-                <Button type="submit" disabled={login.isPending} className="w-full">
-                  {login.isPending ? "Signing in…" : "Sign in"}
+                <Button type="submit" disabled={registerAccount.isPending} className="w-full">
+                  {registerAccount.isPending ? "Creating account…" : "Create account"}
                 </Button>
               </form>
               <p className="mt-4 text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{" "}
-                <Link to="/register" className="font-medium text-foreground underline underline-offset-4">
-                  Sign up
+                Already have an account?{" "}
+                <Link to="/login" className="font-medium text-foreground underline underline-offset-4">
+                  Sign in
                 </Link>
               </p>
             </CardContent>

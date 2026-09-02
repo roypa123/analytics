@@ -55,6 +55,7 @@ async def register(
         email=body.email,
         password=body.password,
         full_name=body.full_name,
+        organisation_name=body.organisation_name,
         user_agent=request.headers.get("User-Agent"),
         ip_hash=hash_ip(request),
     )
