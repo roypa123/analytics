@@ -170,14 +170,21 @@ export function LoginPage() {
                     <p className="text-sm text-destructive">{errors.password.message}</p>
                   )}
                 </div>
-                {/* Part 8 §8.4 — generic message for bad credentials; never
-                    confirm which field was wrong. organisation_mismatch is
-                    specific since credentials already passed at that point. */}
+                {/* Part 8 §8.4 — "Invalid email or password" is deliberately
+                    generic for bad credentials (never confirm which field was
+                    wrong), and organisation_mismatch gets its own message
+                    since credentials already passed at that point. Every
+                    other error code (a 500 from a flaky DB, a network
+                    timeout, a validation error) must NOT fall through to the
+                    credentials message — that reads as "your password is
+                    wrong" when the real cause is an infra or server error. */}
                 {isApiError(login.error) && (
                   <p className="text-sm text-destructive">
-                    {login.error.code === "organisation_mismatch"
-                      ? "This account has no matching organisation."
-                      : "Invalid email or password."}
+                    {login.error.code === "invalid_credentials"
+                      ? "Invalid email or password."
+                      : login.error.code === "organisation_mismatch"
+                        ? "This account has no matching organisation."
+                        : "Something went wrong. Please try again."}
                   </p>
                 )}
                 <Button type="submit" disabled={login.isPending} className="w-full">

@@ -1,0 +1,131 @@
+/**
+ * Nexlytics tracking snippet — vanilla JS, no dependencies.
+ *
+ * Mirrors app/schemas/event.py's CollectorEventRequest (CamelModel, so the
+ * wire format is camelCase) and posts to the collector deployable's
+ * POST /event (app/collector/main.py). It does not read or write cookies —
+ * that's D-01/D-08's daily-rotating server-side visitor hash, not something
+ * this snippet needs to know about.
+ *
+ * Configure it from the <script> tag itself:
+ *   <script src="tracker.js"
+ *           data-tracking-id="ap_xxxxxxxxxxxx"
+ *           data-collector-url="http://localhost:8001"
+ *           data-debug="true"></script>
+ *
+ * data-collector-url defaults to http://localhost:8001 — adjust it to
+ * wherever you're actually running `uvicorn app.collector.main:app`.
+ * data-debug="true" shows a small on-page panel listing events as they fire,
+ * for visual confirmation without opening devtools. It is not part of a real
+ * install — real sites should omit it.
+ */
+(function () {
+  "use strict";
+
+  var scriptTag = document.currentScript;
+  var trackingId = scriptTag.getAttribute("data-tracking-id");
+  var collectorUrl = (scriptTag.getAttribute("data-collector-url") || "http://localhost:8001").replace(/\/$/, "");
+  var debug = scriptTag.getAttribute("data-debug") === "true";
+
+  if (!trackingId) {
+    console.warn("[nexlytics] Missing data-tracking-id on the tracker <script> tag — not tracking.");
+    return;
+  }
+
+  function uuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      var r = (Math.random() * 16) | 0;
+      var v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
+
+  function send(eventName, properties) {
+    var body = {
+      eventId: uuid(),
+      trackingId: trackingId,
+      occurredAt: new Date().toISOString(),
+      eventName: eventName || "pageview",
+      pageUrl: window.location.href,
+      referrerUrl: document.referrer || null,
+      screenWidth: window.screen ? window.screen.width : null,
+      viewportWidth: window.innerWidth || null,
+      properties: properties || null,
+    };
+
+    var url = collectorUrl + "/event";
+    var json = JSON.stringify(body);
+    var delivered = false;
+
+    if (navigator.sendBeacon) {
+      var blob = new Blob([json], { type: "application/json" });
+      delivered = navigator.sendBeacon(url, blob);
+    }
+
+    if (!delivered) {
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: json,
+        keepalive: true,
+      }).catch(function (err) {
+        logDebug(body, "failed: " + err.message);
+      });
+    }
+
+    logDebug(body, delivered ? "sent (beacon)" : "sent (fetch)");
+  }
+
+  // --- optional debug panel (data-debug="true") ---------------------------
+
+  var panel = null;
+
+  function ensurePanel() {
+    if (panel || !debug) return;
+    panel = document.createElement("div");
+    panel.id = "nexlytics-debug";
+    panel.innerHTML =
+      '<strong>nexlytics debug</strong><div class="nx-log"></div>';
+    Object.assign(panel.style, {
+      position: "fixed",
+      bottom: "12px",
+      right: "12px",
+      width: "320px",
+      maxHeight: "220px",
+      overflowY: "auto",
+      background: "#111827",
+      color: "#e5e7eb",
+      font: "12px/1.4 ui-monospace, monospace",
+      padding: "10px 12px",
+      borderRadius: "10px",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+      zIndex: 999999,
+    });
+    document.body.appendChild(panel);
+  }
+
+  function logDebug(eventBody, status) {
+    if (!debug) return;
+    if (document.body) {
+      ensurePanel();
+    } else {
+      document.addEventListener("DOMContentLoaded", ensurePanel, { once: true });
+      return;
+    }
+    var line = document.createElement("div");
+    line.style.borderTop = "1px solid #374151";
+    line.style.padding = "4px 0";
+    line.textContent =
+      new Date().toLocaleTimeString() + "  " + eventBody.eventName + "  [" + status + "]";
+    panel.querySelector(".nx-log").prepend(line);
+  }
+
+  // Public API for custom events from page scripts, e.g.
+  //   window.nexlytics("signup_click", { plan: "pro" })
+  window.nexlytics = send;
+
+  send("pageview");
+})();

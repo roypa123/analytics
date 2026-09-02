@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roypa — Pricing</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <span class="brand">Roypa</span>
+    <nav class="site-nav">
+      <a href="index.html">Home</a>
+      <a href="pricing.html" class="active">Pricing</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Pricing</h1>
+    <p>Pick a plan below — each button fires a custom event with the plan name.</p>
+  </section>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Starter</h3>
+      <div class="price">$0<span>/mo</span></div>
+      <p>For trying things out.</p>
+      <a href="#" class="btn btn-outline plan-button" data-plan="starter">Choose Starter</a>
+    </div>
+    <div class="card">
+      <h3>Pro</h3>
+      <div class="price">$29<span>/mo</span></div>
+      <p>For a single growing site.</p>
+      <a href="#" class="btn btn-primary plan-button" data-plan="pro">Choose Pro</a>
+    </div>
+    <div class="card">
+      <h3>Team</h3>
+      <div class="price">$99<span>/mo</span></div>
+      <p>For a workspace with teammates.</p>
+      <a href="#" class="btn btn-outline plan-button" data-plan="team">Choose Team</a>
+    </div>
+  </div>
+
+  <footer class="site-footer">This is a local test fixture — not a real business.</footer>
+
+  <script
+    src="tracker.js"
+    data-tracking-id="ap_q9llOzLkRHQCWR0w"
+    data-collector-url="http://localhost:8001"
+    data-debug="true"
+  ></script>
+  <script>
+    document.querySelectorAll(".plan-button").forEach(function (button) {
+      button.addEventListener("click", function (event) {
+        event.preventDefault();
+        window.nexlytics("plan_selected", { plan: button.dataset.plan });
+      });
+    });
+  </script>
+</body>
+</html>

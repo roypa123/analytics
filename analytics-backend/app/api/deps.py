@@ -62,4 +62,12 @@ async def get_current_account(
     account = await AccountRepository(session).get_by_id(claims.account_id)
     if account is None:
         raise AuthenticationError("Account not found.")
+
+    # FastAPI caches `get_write_session` per request, so this is the same
+    # AsyncSession a route handler's own `session` param receives. The lookup
+    # above auto-begins a transaction (SQLAlchemy's default); closing it here
+    # means every downstream service can safely open its own with
+    # `async with session.begin():` instead of hitting "A transaction is
+    # already begun on this Session."
+    await session.commit()
     return account

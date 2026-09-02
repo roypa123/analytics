@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useProperties } from "@/hooks/queries/use-properties"
-import { useCurrentAccount } from "@/hooks/queries/use-current-account"
-import { useLogout } from "@/hooks/mutations/use-logout"
 import { cardTap, cardVariants, fadeUp, iconPop, staggerContainer } from "@/lib/motion"
 
 const PLACEHOLDER_METRICS = [
@@ -19,11 +17,10 @@ const PLACEHOLDER_METRICS = [
 // Placeholder for the Tier-1 overview (Part 1 §1.2). Proves the auth
 // vertical slice end-to-end: protected route → authenticated request →
 // account data rendered. Metric cards are visual scaffolding — real data
-// arrives with the reporting API (Part 1 §1.11).
+// arrives with the reporting API (Part 1 §1.11). Header/sign-out now live in
+// AppShell (Part 7 §7.10), so this page owns only its own content.
 export function DashboardPage() {
-  const { data: account, isLoading } = useCurrentAccount()
   const { data: properties, isLoading: isLoadingProperties } = useProperties()
-  const logout = useLogout()
   const hasProperty = (properties?.length ?? 0) > 0
 
   return (
@@ -31,31 +28,11 @@ export function DashboardPage() {
       initial="hidden"
       animate="show"
       variants={staggerContainer}
-      className="flex min-h-dvh flex-col gap-6 p-6"
+      className="flex flex-col gap-6 p-6"
     >
-      <motion.header
-        variants={fadeUp}
-        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold">Dashboard</h1>
-          <p className="truncate text-sm text-muted-foreground">
-            {isLoading ? (
-              <Skeleton className="mt-1 h-4 w-40" />
-            ) : (
-              `Signed in as ${account?.email}`
-            )}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => logout.mutate()}
-          disabled={logout.isPending}
-          className="self-start sm:self-auto"
-        >
-          Sign out
-        </Button>
-      </motion.header>
+      <motion.h1 variants={fadeUp} className="text-xl font-semibold">
+        Dashboard
+      </motion.h1>
 
       {isLoadingProperties ? (
         <Skeleton className="h-32 w-full" />

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roypa — Contact</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <span class="brand">Roypa</span>
+    <nav class="site-nav">
+      <a href="index.html">Home</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="contact.html" class="active">Contact</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Contact us</h1>
+    <p>Submitting this form fires a custom event — no data actually leaves the browser.</p>
+  </section>
+
+  <form id="contact-form">
+    <div>
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" required />
+    </div>
+    <div>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required />
+    </div>
+    <div>
+      <label for="message">Message</label>
+      <textarea id="message" name="message" rows="4"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Send message</button>
+    <p class="status-message" id="status"></p>
+  </form>
+
+  <footer class="site-footer">This is a local test fixture — not a real business.</footer>
+
+  <script
+    src="tracker.js"
+    data-tracking-id="ap_q9llOzLkRHQCWR0w"
+    data-collector-url="http://localhost:8001"
+    data-debug="true"
+  ></script>
+  <script>
+    document.getElementById("contact-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      window.nexlytics("contact_form_submitted", {
+        has_message: document.getElementById("message").value.length > 0,
+      });
+      document.getElementById("status").textContent = "Thanks — event sent, form not actually submitted anywhere.";
+      event.target.reset();
+    });
+  </script>
+</body>
+</html>

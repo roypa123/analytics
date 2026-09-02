@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roypa — Test Site</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <span class="brand">Roypa</span>
+    <nav class="site-nav">
+      <a href="index.html" class="active">Home</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>This is a test site, not a product</h1>
+    <p>
+      Every page here loads the Nexlytics tracking snippet below. Click
+      around, submit the contact form, and watch events show up in the debug
+      panel (bottom-right) and in your Nexlytics dashboard.
+    </p>
+    <a href="pricing.html" class="btn btn-primary" id="get-started">Get started</a>
+    <a href="contact.html" class="btn btn-outline">Contact sales</a>
+  </section>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Automatic pageviews</h3>
+      <p>Every page load fires a pageview event with no extra code.</p>
+    </div>
+    <div class="card">
+      <h3>Custom events</h3>
+      <p>Buttons on this site call <code>window.nexlytics(name, props)</code> directly.</p>
+    </div>
+    <div class="card">
+      <h3>Referrer chains</h3>
+      <p>Navigate between these pages to test <code>referrerUrl</code> tracking.</p>
+    </div>
+  </div>
+
+  <footer class="site-footer">This is a local test fixture — not a real business.</footer>
+
+  <!--
+    Replace data-tracking-id with the id shown on your onboarding
+    "install snippet" page, and data-collector-url with wherever you're
+    running `uvicorn app.collector.main:app` (defaults to :8001).
+  -->
+  <script
+    src="tracker.js"
+    data-tracking-id="ap_q9llOzLkRHQCWR0w"
+    data-collector-url="http://localhost:8001"
+    data-debug="true"
+  ></script>
+  <script>
+    document.getElementById("get-started").addEventListener("click", function () {
+      window.nexlytics("cta_click", { label: "get_started", location: "hero" });
+    });
+  </script>
+</body>
+</html>

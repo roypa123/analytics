@@ -1156,9 +1156,11 @@ already in `login-page.tsx` (`grid-cols-1 lg:grid-cols-2`) and
 
 - **Dashboard (`pages/dashboard/`, future `analytics/` widgets).** The metric
   grid and any future chart grid collapse to a single column below `sm`,
-  never fixed-width. A sidebar/nav shell (once one exists, per §7.18) must
-  collapse to a `Sheet`-based drawer below `lg` rather than a permanently
-  docked rail — this is what `hooks/use-mobile.ts` (§7.7) exists to drive.
+  never fixed-width. The sidebar/nav shell (`layout/app-shell.tsx` +
+  `layout/app-sidebar.tsx`, built on `ui/sidebar`) collapses to a
+  `Sheet`-based drawer below `md` rather than a permanently docked rail —
+  `ui/sidebar`'s own `useIsMobile` (`hooks/use-mobile.ts`, §7.7) drives this,
+  not a bespoke breakpoint check.
 - **Auth pages.** The illustration column (`AnalyticsHero`/`GridGlow`) is
   already `hidden` below `lg` — decorative panels never get their own
   breakpoint-specific redesign, they simply drop out, per the existing

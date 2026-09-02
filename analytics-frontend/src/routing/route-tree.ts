@@ -1,3 +1,4 @@
+import { appShellRoute } from "@/routing/routes/app-shell.route"
 import { appRoute } from "@/routing/routes/app.route"
 import { dashboardRoute } from "@/routing/routes/dashboard.route"
 import { landingRoute } from "@/routing/routes/landing.route"
@@ -14,5 +15,9 @@ export const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
   registerRoute,
-  appRoute.addChildren([dashboardRoute, createPropertyRoute, installSnippetRoute]),
+  appRoute.addChildren([
+    appShellRoute.addChildren([dashboardRoute]),
+    createPropertyRoute,
+    installSnippetRoute,
+  ]),
 ])
