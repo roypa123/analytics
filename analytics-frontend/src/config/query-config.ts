@@ -6,4 +6,5 @@ export const STALE_TIME = {
   liveRange: 60_000,
   realtime: 10_000,
   account: 5 * 60_000,
+  properties: 5 * 60_000,
 } as const

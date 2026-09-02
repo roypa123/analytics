@@ -12,7 +12,11 @@ export const queryKeys = {
   },
   properties: {
     all: () => ["properties"] as const,
-    list: (workspaceId: string) => [...queryKeys.properties.all(), "list", workspaceId] as const,
+    // No workspaceId param yet: every account has exactly one workspace
+    // today (D-25) and there is no workspace-switcher UI, so the backend
+    // resolves "the" workspace from the authenticated account implicitly
+    // (Part 4 property_service.py). Add the param back once that changes.
+    list: () => [...queryKeys.properties.all(), "list"] as const,
     detail: (propertyId: string) => [...queryKeys.properties.all(), "detail", propertyId] as const,
   },
 } as const

@@ -2,6 +2,8 @@ import { appRoute } from "@/routing/routes/app.route"
 import { dashboardRoute } from "@/routing/routes/dashboard.route"
 import { landingRoute } from "@/routing/routes/landing.route"
 import { loginRoute } from "@/routing/routes/login.route"
+import { createPropertyRoute } from "@/routing/routes/onboarding/create-property.route"
+import { installSnippetRoute } from "@/routing/routes/onboarding/install-snippet.route"
 import { registerRoute } from "@/routing/routes/register.route"
 import { rootRoute } from "@/routing/routes/root.route"
 
@@ -12,5 +14,5 @@ export const routeTree = rootRoute.addChildren([
   landingRoute,
   loginRoute,
   registerRoute,
-  appRoute.addChildren([dashboardRoute]),
+  appRoute.addChildren([dashboardRoute, createPropertyRoute, installSnippetRoute]),
 ])

@@ -15,3 +15,16 @@ export function validateLoginSearch(input: Record<string, unknown>): LoginSearch
   // target to `navigate()` (Part 7 §7.12).
   return { redirect: redirect?.startsWith("/") ? redirect : undefined }
 }
+
+export interface InstallSnippetSearch {
+  trackingId?: string
+}
+
+// Carries the just-created property's tracking id from the create-property
+// step to the install-snippet step without a second fetch. Falls back to
+// `useProperties()` in the page itself if this is empty (e.g. a direct visit).
+export function validateInstallSnippetSearch(
+  input: Record<string, unknown>
+): InstallSnippetSearch {
+  return { trackingId: asString(input.trackingId) }
+}

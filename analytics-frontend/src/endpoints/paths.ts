@@ -10,4 +10,7 @@ export const paths = {
     logout: "/auth/logout",
     me: "/auth/me",
   },
+  properties: {
+    root: "/properties",
+  },
 } as const

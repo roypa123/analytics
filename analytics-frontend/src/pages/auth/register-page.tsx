@@ -51,7 +51,9 @@ export function RegisterPage() {
       },
       {
         onSuccess: () => {
-          void navigate({ to: "/dashboard" })
+          // Part 8 §8.8 — "create first property" is the step right after
+          // signup, not the dashboard directly.
+          void navigate({ to: "/onboarding/property" })
         },
       }
     )
