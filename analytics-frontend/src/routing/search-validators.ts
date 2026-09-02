@@ -3,7 +3,7 @@
 // so type safety flows from the return annotation regardless of how the
 // parsing is authored.
 
-import { asString } from "@/utils/validation"
+import { asOneOf, asString } from "@/utils/validation"
 
 export interface LoginSearch {
   redirect?: string
@@ -27,4 +27,27 @@ export function validateInstallSnippetSearch(
   input: Record<string, unknown>
 ): InstallSnippetSearch {
   return { trackingId: asString(input.trackingId) }
+}
+
+// Part 1 §1.2 (Tier 1) — the breakdown-table dimensions. Kept in the URL
+// (rather than component state) so a report tab is bookmarkable/shareable,
+// same rationale as `trackingId` above.
+export const REPORT_DIMENSIONS = [
+  "pages",
+  "referrers",
+  "sources",
+  "locations",
+  "devices",
+  "browsers",
+  "os",
+] as const
+
+export type ReportDimension = (typeof REPORT_DIMENSIONS)[number]
+
+export interface ReportsSearch {
+  dimension: ReportDimension
+}
+
+export function validateReportsSearch(input: Record<string, unknown>): ReportsSearch {
+  return { dimension: asOneOf(input.dimension, REPORT_DIMENSIONS, "pages") }
 }

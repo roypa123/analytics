@@ -748,9 +748,11 @@ src/pages/
 ├── dashboard/
 │   └── dashboard-page.tsx          # the Tier-1 overview
 ├── reports/
-│   ├── pages-report-page.tsx       sources-report-page.tsx
-│   ├── geo-report-page.tsx         devices-report-page.tsx
-│   └── events-report-page.tsx
+│   └── reports-page.tsx            # interim: one page, dimension tabs — see below
+│   # target shape once `runReport` (§ below) exists:
+│   #   pages-report-page.tsx       sources-report-page.tsx
+│   #   geo-report-page.tsx         devices-report-page.tsx
+│   #   events-report-page.tsx
 ├── realtime/
 │   └── realtime-page.tsx
 ├── settings/
@@ -760,6 +762,17 @@ src/pages/
 └── error/
     ├── not-found-page.tsx          forbidden-page.tsx
 ```
+
+**Interim `reports-page.tsx`.** Same reasoning as the dashboard's interim
+shape (single implied property, no `/p/:propertyId` prefix yet): one page
+renders all seven Tier-1 dimensions (Part 1 §1.2 — pages, referrers, UTM
+source/medium, locations, devices, browsers, OS) as tabs, with the active tab
+kept in a `dimension` search param (`validateReportsSearch`) so a report is
+bookmarkable. Each tab is a real table header (the eventual columns) over an
+honest `Empty` state — `runReport` (the single-endpoint design in the routing
+section below) doesn't exist on the backend yet, so there is nothing to query.
+Splits into the five dedicated pages above once that endpoint lands and the
+tab list outgrows one file.
 
 **A page's job** is to read route params and search params, call the query
 hooks, handle the loading/error/empty triad, and lay out `analytics/`
@@ -780,6 +793,7 @@ src/routing/
 │   ├── auth.route.tsx      # unauthenticated layout
 │   ├── app.route.tsx       # authenticated layout — the guard lives here
 │   ├── property.route.tsx  # /p/$propertyId — resolves the active property
+│   ├── app-shell.route.tsx           # layout route: sidebar + header + <Outlet/>
 │   ├── dashboard.route.tsx reports.route.tsx realtime.route.tsx
 │   └── settings.route.tsx
 ├── search-validators.ts    # hand-written validators for typed search params
@@ -792,6 +806,7 @@ src/routing/
 /                                           public marketing landing page
 /login                                     public
 /dashboard                                 the Tier-1 overview (moves under /p/:propertyId later)
+/reports?dimension=pages                   breakdown tables, tab per dimension (interim — see Pages, above)
 /p/:propertyId                             dashboard
 /p/:propertyId/reports/pages?from=…&to=…   report, state in search params
 /p/:propertyId/realtime

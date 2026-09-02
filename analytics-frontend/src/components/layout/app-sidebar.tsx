@@ -12,18 +12,17 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { Logo } from "@/components/illustrations/logo"
+import { UserMenu } from "@/components/layout/user-menu"
 
-// Part 7 §7.10 — `layout/app-sidebar.tsx`, built on `ui/sidebar`. Reports,
-// Realtime, and Settings are listed but disabled: those pages don't exist
-// yet (only the auth vertical slice and this onboarding/dashboard slice are
-// built), and a sidebar link to a route that 404s is worse than one that's
-// honestly marked "Soon."
-// Split by `enabled` rather than a shared `to` field: only "/dashboard" is a
-// route TanStack Router actually knows about, so the disabled items must not
+// Part 7 §7.10 — `layout/app-sidebar.tsx`, built on `ui/sidebar`. Realtime
+// and Settings are still listed but disabled: those pages don't exist yet,
+// and a sidebar link to a route that 404s is worse than one that's honestly
+// marked "Soon."
+// Split by `enabled` rather than a shared `to` field: disabled items don't
 // carry a `to` typed against the route tree at all.
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, enabled: true, to: "/dashboard" },
-  { label: "Reports", icon: BarChart3, enabled: false },
+  { label: "Reports", icon: BarChart3, enabled: true, to: "/reports" },
   { label: "Realtime", icon: Activity, enabled: false },
   { label: "Settings", icon: Settings, enabled: false },
 ] as const
@@ -72,6 +71,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <UserMenu />
     </Sidebar>
   )
 }

@@ -6,6 +6,7 @@ import { loginRoute } from "@/routing/routes/login.route"
 import { createPropertyRoute } from "@/routing/routes/onboarding/create-property.route"
 import { installSnippetRoute } from "@/routing/routes/onboarding/install-snippet.route"
 import { registerRoute } from "@/routing/routes/register.route"
+import { reportsRoute } from "@/routing/routes/reports.route"
 import { rootRoute } from "@/routing/routes/root.route"
 
 // Code-based route tree (Part 7 §7.3) rather than the file-based generator —
@@ -16,7 +17,7 @@ export const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   appRoute.addChildren([
-    appShellRoute.addChildren([dashboardRoute]),
+    appShellRoute.addChildren([dashboardRoute, reportsRoute]),
     createPropertyRoute,
     installSnippetRoute,
   ]),
