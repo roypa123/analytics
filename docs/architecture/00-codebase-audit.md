@@ -1,9 +1,13 @@
 # Part 0 — Codebase Audit
 
-> **Status of this document:** Ground truth as of 2026-09-02, commit `4cb8beb`.
+> **Status of this document:** Ground truth as of 2026-09-02, commit `4cb8beb`
+> plus an uncommitted shadcn install (see §0.3.0).
 > Everything in Parts 1–11 is constrained by what is recorded here. Where the
 > project brief and the repository disagree, this document states the
 > disagreement explicitly rather than papering over it.
+>
+> **Revision 2** — the full shadcn component set was installed mid-audit. §0.3.0
+> records the delta; findings F-01 and F-04 are amended accordingly.
 
 ---
 
@@ -98,6 +102,71 @@ fresh clone would not have them.
 
 ## 0.3 Frontend audit
 
+### 0.3.0 Revision 2 — the full shadcn component set is now installed
+
+After the first pass of this audit, `npx shadcn@latest add` was run across the
+whole registry. The frontend now contains **61 components** in
+`src/components/ui/`, plus `src/hooks/use-mobile.ts`, and eight new runtime
+dependencies arrived with them.
+
+**Components now present:**
+
+```
+accordion  alert  alert-dialog  aspect-ratio  attachment  avatar  badge
+breadcrumb  bubble  button  button-group  calendar  card  carousel  chart
+checkbox  collapsible  combobox  command  context-menu  dialog  direction
+drawer  dropdown-menu  empty  field  hover-card  input  input-group  input-otp
+item  kbd  label  marker  menubar  message  message-scroller  native-select
+navigation-menu  pagination  popover  progress  questionnaire  radio-group
+resizable  scroll-area  select  separator  sheet  sidebar  skeleton  slider
+spinner  switch  table  tabs  textarea  toast  toggle  toggle-group  tooltip
+```
+
+**New dependencies, and what pulled them in:**
+
+| Package | Version | Arrived with | Relevance to analytics |
+| --- | --- | --- | --- |
+| `recharts` | ^3.8.0 | `chart` | **The charting decision is now made** — see amended F-04 |
+| `date-fns` | ^4.4.0 | `calendar` | Date-range picker + all time formatting |
+| `react-day-picker` | — | `calendar` | Date-range picker |
+| `cmdk` | — | `command` | Command palette / property switcher |
+| `embla-carousel-react` | — | `carousel` | Not needed for analytics |
+| `input-otp` | — | `input-otp` | MFA entry (Part 8) |
+| `react-resizable-panels` | — | `resizable` | Dashboard layout, optional |
+| `@shadcn/react` | ^0.3.1 | registry runtime | — |
+
+**Assessment.** This is a net positive and it resolves real uncertainty. Three
+consequences:
+
+1. **Every primitive the analytics UI needs already exists**, correctly styled,
+   in the correct Base UI flavour. `table`, `chart`, `calendar`, `select`,
+   `combobox`, `command`, `sidebar`, `tabs`, `skeleton`, `empty`, and `tooltip`
+   are precisely the Tier-1 dashboard's building blocks. Part 7 §7.10 maps each
+   analytics component onto the primitives it composes.
+2. **`sidebar` and `empty` and `skeleton` being present shapes the layout and
+   loading-state design** — Part 7 §7.10 uses `sidebar` for the app shell rather
+   than proposing a hand-rolled one, and standardizes every async surface on
+   `skeleton` + `empty`.
+3. **The unused components are harmless but should not be treated as free.**
+   `carousel`, `bubble`, `message`, `message-scroller`, `questionnaire`,
+   `attachment`, and `marker` have no role in an analytics product. They are
+   tree-shaken out of the bundle since nothing imports them, so there is no
+   runtime cost — but they are code in the repository that will drift, get
+   flagged by lint, and confuse newcomers about what the app does.
+
+> **Action item A-09.** Decide explicitly whether to delete the ~8 unused
+> components or keep the full set. Recommendation: **keep them.** Re-adding via
+> the CLI is trivial, but deleting invites someone to delete something that
+> *is* used transitively (`item` and `field`, for instance, are used by other
+> components). Instead, add `src/components/ui/` to the lint ignore list for
+> unused-export rules, and note in the frontend README that `ui/` is
+> CLI-managed vendor code, not hand-authored.
+
+Note that `use-mobile.ts` landed directly in `src/hooks/` — so that folder is no
+longer empty, and its first inhabitant establishes a convention (kebab-case
+filenames, named export, `use*` prefix) that Part 7 §7.7 follows rather than
+overrides.
+
 ### 0.3.1 Verified state
 
 | Question | Finding |
@@ -112,21 +181,25 @@ fresh clone would not have them.
 | Class utilities | `clsx`, `tailwind-merge`, `class-variance-authority` |
 | Path alias | `@/*` → `./src/*`, configured in **both** `vite.config.ts` and `tsconfig.*.json` |
 | Lint | ESLint 10.9.0 flat config, `typescript-eslint` 8.67, react-hooks 7.1.1 |
+| Chart library | **`recharts` 3.8.0** + shadcn `chart.tsx` wrapper (rev. 2) |
+| Date library | **`date-fns` 4.4.0** + `react-day-picker` (rev. 2) |
 | Router | **none installed** |
 | Server-state library | **none installed** |
 | Client-state library | **none installed** |
 | HTTP client | **none installed** |
-| Chart library | **none installed** |
 | Form library | **none installed** |
-| Date library | **none installed** |
 | Test runner | **none installed** |
 
-### 0.3.2 Finding F-01 — the brief's three named libraries are not installed
+### 0.3.2 Finding F-01 — Jotai, TanStack Query, and a router are still missing
 
 The brief states the frontend "uses" React, Tailwind, shadcn/ui, **Jotai**, and
 **TanStack Query**. React, Tailwind, and shadcn are genuinely present and
-configured. Jotai and TanStack Query are not in `package.json`, not in
-`package-lock.json`, and not imported anywhere.
+configured — comprehensively so after revision 2. Jotai and TanStack Query are
+still not in `package.json` and not imported anywhere.
+
+The revision-2 install did **not** change this: shadcn pulls in presentation
+dependencies only. State management, routing, and data fetching remain
+unchosen, and they are the three decisions Part 7 must actually make.
 
 There is also **no router at all**, despite `src/routing/` existing and the
 brief asking how "routing should be organized" and how "protected routes"
@@ -266,6 +339,25 @@ stacked bars, and category breakdowns where colour *is* the encoding.
 > the ground is maintained in both. Plus a sequential ramp (for
 > geo/choropleth and heatmap-of-hour-vs-weekday) and a diverging ramp (for
 > period-over-period deltas). Part 7 §7.11 specifies this.
+
+**Amendment (rev. 2).** The installed `chart.tsx` supplies the *mechanism* for
+fixing this, which materially reduces the work. Its `ChartConfig` type accepts
+either a single `color` or a per-theme map:
+
+```ts
+| { color?: string; theme?: never }
+| { color?: never; theme: Record<"light" | "dark", string> }
+```
+
+and `THEMES = { light: "", dark: ".dark" }` matches the `.dark` class variant
+already in `index.css`. So the wiring from token to series colour exists and is
+theme-aware out of the box.
+
+**A-03 is therefore reduced from "build a theming mechanism" to "choose eight
+oklch values per theme and write them into `index.css`."** The greyscale
+`--chart-1..5` defaults remain unusable and remain a blocker for the first
+chart — but it is now a half-day design task, not an engineering one. Part 7
+§7.11 gives the required properties and the validation procedure.
 
 ### 0.3.6 Finding F-05 — no application shell exists
 

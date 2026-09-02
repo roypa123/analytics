@@ -32,11 +32,12 @@ Radix. Every later part is written against those findings.
 | 4 | [Backend Architecture](04-backend-architecture.md) | FastAPI layering, repositories, transactions, the query engine |
 | 5 | Ingestion Pipeline | *pending* |
 | 6 | Background Processing | *pending* |
-| 7 | Frontend Architecture | *pending* |
-| 8 | Auth & Multi-Tenancy | *pending* |
+| 7 | [Frontend Architecture](07-frontend-architecture.md) | The ten folders, state split, query keys, components, routing |
+| 8 | [Auth, Tenancy & Access Control](08-auth-and-tenancy.md) | Tokens, two-axis RBAC, per-property access, invitations, API keys |
 | 9 | Migrations & Alembic | *pending* |
 | 10 | Operations | *pending* |
 | 11 | Delivery Roadmap | *pending* |
+| 12 | [Billing & Subscriptions (Razorpay)](12-billing-razorpay.md) | Per-seat subscriptions, entitlements, quotas, webhooks, GST |
 
 ---
 
@@ -62,6 +63,41 @@ Decisions that are expensive to reverse. Each is argued where it is made.
 | D-14 | ORM for `core.*`, SQLAlchemy Core for `analytics.*`, `COPY` for bulk insert | Part 4 §4.6 |
 | D-15 | Argon2id over bcrypt | Part 4 §4.8 |
 | D-16 | Services own transaction boundaries; repositories never commit | Part 4 §4.12 |
+| D-17 | TanStack Router over React Router, for typed URL search state | Part 7 §7.3 |
+| D-18 | No new top-level frontend folders; Jotai atoms live in `context/atoms/` | Part 7 §7.4 |
+| D-19 | B2C and B2B are one tenancy model at different seat counts, not two models | Part 8 §8.1 |
+| D-20 | In-memory access JWT + httpOnly rotating refresh token | Part 8 §8.4 |
+| D-21 | Permissions resolved per request from the DB, not embedded in the token | Part 8 §8.4 |
+| D-22 | One Razorpay subscription per workspace, priced per seat; events are capped, not metered | Part 12 §12.1 |
+| D-23 | Never stop ingesting events for non-payment — degrade reporting instead | Part 12 §12.7 |
+
+## Project-directed constraints
+
+Choices set by the project rather than derived in this plan. Recorded so their
+consequences are traceable.
+
+| ID | Constraint | Consequence |
+| --- | --- | --- |
+| C-01 | shadcn is the Base UI (`base-nova`) flavour — all components added via CLI, no Radix | Part 0 §0.3.3 |
+| C-02 | **Axios** for HTTP, not `fetch` | Interceptors carry auth, error normalization, and 401-refresh — Part 7 §7.5 |
+| C-03 | **No Zod** | URL search params and env vars get hand-written validators; `parseFilterTree` becomes a tested pure function — Part 7 §7.12 |
+
+## Standing rules
+
+| ID | Rule | Where |
+| --- | --- | --- |
+| R-01 | All SQL lives in `repositories/`. No exceptions. | Part 4 §4.6 |
+| R-02 | All query keys come from the `api/query-keys.ts` factory | Part 7 §7.8 |
+| R-03 | TanStack Query owns server state, Jotai owns client state, the URL owns shareable state | Part 7 §7.9 |
+| R-04 | `analytics/` components compose `ui/` primitives; `ui/` is never hand-edited | Part 7 §7.10 |
+| R-05 | `types/` emits zero JavaScript | Part 7 §7.13 |
+| R-06 | Every workspace has at least one `owner` at all times | Part 8 §8.3 |
+| R-07 | Every tenant-scoped endpoint has a cross-tenant isolation test; CI enforces it | Part 8 §8.7 |
+| R-08 | Entitlements are checked in the service layer at the moment of action | Part 12 §12.5 |
+| R-09 | `subscriptions.quantity >= COUNT(memberships)` at all times | Part 12 §12.6 |
+| R-10 | Verify webhook signatures against raw bytes, before parsing, in constant time | Part 12 §12.9 |
+| R-11 | Every subscription state transition is guarded by a monotonic timestamp check | Part 12 §12.9 |
+| R-12 | Nightly reconciliation of local billing state against Razorpay | Part 12 §12.10 |
 
 ## Action register
 
@@ -77,6 +113,11 @@ Concrete work items surfaced by the audit and the design.
 | A-06 | Document that `events_raw` column order is alignment-driven | 3 §3.3 |
 | A-07 | Disclose HLL approximation and daily-identity semantics in the UI | 3 §3.7 |
 | A-08 | Configure asyncpg for PgBouncer transaction mode from the first commit | 3 §3.12 |
+| A-09 | Decide whether to keep the ~8 unused shadcn components (recommend: keep, mark `ui/` as CLI-managed) | 0 §0.3.0 |
+| A-10 | **Verify the current RBI AFA threshold against worst-case invoice size before fixing prices** | 12 §12.2 |
+| A-11 | Accountant review of GST treatment, place-of-supply, and invoice format | 12 §12.2 |
+| A-12 | Decide annual billing (interacts with A-10) | 12 §12.13 |
+| A-13 | Confirm whether non-INR international customers are in scope | 12 §12.13 |
 
 ---
 

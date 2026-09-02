@@ -51,7 +51,8 @@ to be usable at all.
 | Date range + comparison | Presets, custom range, previous-period and previous-year comparison |
 | Realtime view | Visitors in the last 30 minutes |
 | Multi-property | One account manages several websites |
-| Auth + workspaces | Registration, login, invite teammates, role-based access |
+| Auth + workspaces | Registration, login, invite teammates, two-axis RBAC (Part 8) |
+| Billing | Razorpay per-seat subscriptions, entitlements, quotas (Part 12) |
 
 ### Tier 2 — Analysis depth (next)
 
@@ -125,28 +126,60 @@ at exactly the moment (year end) when people most want it.
 
 ## 1.4 The domain model
 
-Nine core entities. Everything in Part 3's schema derives from this.
+Everything in Part 3's schema derives from this. Access control and billing are
+specified in Parts 8 and 12 respectively; this is the shape they attach to.
 
 ```
 Account (a person who logs in)
-   └─ belongs to many ─┐
-                       ├── Workspace (billing + team boundary)
-   Membership ─────────┘        │
-   (role: owner/admin/           │ owns many
-    analyst/viewer)              ▼
-                              Property (one website / one data stream)
-                                 │
-                                 ├── owns many ── Goal
-                                 ├── owns many ── Segment (saved filter)
-                                 ├── owns many ── ApiKey
-                                 │
-                                 └── receives ──▶ Event (raw, partitioned)
-                                                    │
-                                                    └─ grouped into ─▶ Session
-                                                                        │
-                                                    Visitor ◀───────────┘
-                                                  (ephemeral identity)
+   │
+   ├── Membership (workspace_role: owner/admin/member)
+   │        └──▶ governs billing + workspace administration
+   ▼
+Workspace ────── Subscription (Razorpay, per-seat)      ── Part 12
+ (tenancy +          │
+  billing            └─ seats = COUNT(memberships)
+  boundary)          └─ tier  = event cap, property cap, retention
+   │
+   │ owns many
+   ▼
+Property (one website / one data stream)
+   ▲   │
+   │   ├── owns many ── Goal
+   │   ├── owns many ── Segment (saved filter)
+   │   ├── owns many ── ApiKey
+   │   │
+   │   └── receives ──▶ Event (raw, partitioned)
+   │                       │
+   │                       └─ grouped into ─▶ Session
+   │                                             │
+   │                       Visitor ◀─────────────┘
+   │                     (ephemeral identity)
+   │
+   └── PropertyAccess (property_role: admin/analyst/viewer)  ── Part 8
+            └──▶ governs which sites a member sees at all
+                 Account ─────┘
 ```
+
+### The two role dimensions
+
+Access is granted along **two independent axes**, which is what lets one member
+see `site1.com` while another sees `site2.com` in the same workspace:
+
+- **`workspace_role`** — billing, invitations, property creation. Workspace-wide.
+- **`property_role`** — reports, goals, segments, settings. Per property.
+
+A member with no `PropertyAccess` row for a property does not see that property
+at all — it is absent from list endpoints, not forbidden. Part 8 §8.2 argues
+the design and §8.6 gives the full capability matrix.
+
+### B2C and B2B are the same model
+
+A solo customer is a workspace with one member holding `owner`, whose seat count
+is 1. A team customer is the same workspace with more members and explicit
+property grants. There is no separate "personal account" entity, and the
+upgrade from solo to team is *inviting someone* — not a migration. Part 8 §8.1
+(D-19) explains why the alternative is a trap, and Part 12 §12.1 shows where
+the commercial distinction actually lives (seat quantity, nothing else).
 
 ### Entity definitions
 
@@ -159,8 +192,15 @@ makes agency use cases impossible to retrofit.
 plan/quota, and is the scope for team membership. Every analytics query is
 authorized against a workspace. Deleting a workspace cascades to all its data.
 
-**Membership.** The join between Account and Workspace, carrying a role. See
-Part 8 §8.6 for the permission matrix.
+**Membership.** The join between Account and Workspace, carrying
+`workspace_role`. One membership = one billable seat (Part 12 §12.6).
+
+**PropertyAccess.** The join between Account and Property, carrying
+`property_role`. This is the mechanism behind per-property visibility. Part 8
+§8.3.
+
+**Subscription.** One per workspace, one-to-one, priced per seat via Razorpay.
+Null while on the free tier. Part 12 §12.3.
 
 **Property.** A single measured website or app — one tracking id, one data
 stream. Holds timezone (critical: all day-bucketing is in property-local time,
