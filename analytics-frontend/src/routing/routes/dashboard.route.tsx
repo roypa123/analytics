@@ -5,6 +5,6 @@ import { appRoute } from "@/routing/routes/app.route"
 
 export const dashboardRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: "/",
+  path: "/dashboard",
   component: DashboardPage,
 })

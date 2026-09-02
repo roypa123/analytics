@@ -65,6 +65,9 @@ Resolving Part 0 F-01. Revision 2 already supplied charting and dates.
   // forms
   "react-hook-form": "^7.54",
 
+  // motion
+  "framer-motion": "^11",                  // D-24; marketing, auth, and dashboard-shell animation
+
   // testing (dev)
   "vitest": "^2.1",
   "@testing-library/react": "^16.1",
@@ -96,6 +99,10 @@ only the authoring is manual. §7.12 specifies the shape.
 Form validation uses **react-hook-form's built-in rules** (`required`,
 `pattern`, `min`, `validate`) rather than a resolver. Sufficient for the forms
 this product has: login, property settings, goal definitions, invitations.
+
+**Framer Motion**, per D-24, for the visual-design pass covering the marketing
+landing page, the auth pages, and the dashboard shell's entrance/transition
+motion. See §7.17 for where it lives and how it is bounded.
 
 ---
 
@@ -549,6 +556,10 @@ account takeover.
 ```
 src/components/
 ├── ui/            # 61 shadcn primitives. CLI-MANAGED. Do not hand-edit.
+├── illustrations/ # generated SVG/CSS art (D-24) — no external image assets
+│   ├── blob-background.tsx     # decorative animated gradient blobs
+│   ├── analytics-hero.tsx      # abstract chart-motif hero illustration
+│   └── grid-glow.tsx           # subtle animated backdrop for auth/empty states
 ├── layout/        # app shell
 │   ├── app-shell.tsx           # composes sidebar + header + <Outlet/>
 │   ├── app-sidebar.tsx         # built on ui/sidebar
@@ -711,6 +722,8 @@ ordered data implies a ranking that is not there.
 
 ```
 src/pages/
+├── marketing/
+│   └── landing-page.tsx            # public "/" — hero, feature grid, CTA
 ├── auth/
 │   ├── login-page.tsx      register-page.tsx
 │   ├── forgot-password-page.tsx   reset-password-page.tsx
@@ -762,13 +775,21 @@ src/routing/
 **URL shape:**
 
 ```
+/                                           public marketing landing page
 /login                                     public
+/dashboard                                 the Tier-1 overview (moves under /p/:propertyId later)
 /p/:propertyId                             dashboard
 /p/:propertyId/reports/pages?from=…&to=…   report, state in search params
 /p/:propertyId/realtime
 /p/:propertyId/settings/goals
 /workspaces/:workspaceId/members
 ```
+
+**`/` is public** and unauthenticated visitors land there instead of being
+redirected straight to `/login` — it is a sibling of `loginRoute` on
+`rootRoute`, not a child of the authenticated `appRoute`. `requireAuth`
+(`routing/guards.ts`) redirects to `/login`, and login's default post-auth
+target is `/dashboard`, not `/`.
 
 The property id in the path (not a search param) makes it a first-class part of
 the address, so `property.route.tsx` can resolve and validate it once for every
@@ -1015,7 +1036,74 @@ two-line entry it currently is.
 
 ---
 
-## 7.17 What remains
+## 7.17 Visual design system: motion and illustration
+
+> **Decision D-24.** Framer Motion for animation; generated inline SVG/CSS for
+> illustration. No external image assets, no icon packs beyond `lucide-react`
+> (already installed), no stock photography or CDN-hosted media.
+
+**Why generated illustration over image files.** An analytics product with no
+design team on hand needs art that (a) never goes stale, (b) themes correctly
+in light and dark without shipping two image variants, and (c) has zero
+licensing or asset-pipeline overhead. Inline SVG driven by the same CSS custom
+properties as everything else (`--primary`, the chart palette) satisfies all
+three; a PNG hero graphic satisfies none of them.
+
+**Where it lives:**
+
+- `src/lib/motion.ts` — shared Framer Motion variants (`fadeUp`, `fadeIn`,
+  `staggerContainer`, `scaleIn`) and transition presets. One definition per
+  effect, reused across `pages/marketing`, `pages/auth`, and
+  `pages/dashboard` — never inlined ad hoc per component, or the product
+  accumulates a dozen slightly-different fade timings.
+- `src/components/illustrations/` (§7.10) — the SVG art itself, as
+  presentational components taking no props beyond `className`. They compose
+  with `framer-motion`'s `motion.svg`/`motion.path` for entrance and idle
+  animation (e.g. a slow path-draw on the hero chart motif, a slow drift on
+  background blobs).
+
+**Token additions in `index.css`.** The existing semantic tokens
+(`--primary`, `--background`, …) stay untouched — shadcn `ui/` components
+depend on them (R-04) and a11y contrast was tuned against them. A parallel set
+of **brand accent tokens** is added for marketing/hero surfaces only:
+
+```css
+:root {
+  --brand-from: oklch(0.6 0.19 280);   /* indigo */
+  --brand-via:  oklch(0.65 0.2 320);   /* fuchsia */
+  --brand-to:   oklch(0.75 0.17 55);   /* amber */
+}
+```
+
+with a `.dark` override at slightly higher lightness for the same hues. These
+back two utility classes (`bg-brand-gradient`, `text-brand-gradient`) used
+only in `illustrations/`, `pages/marketing/`, and hero-adjacent surfaces of
+`pages/auth/` — never inside `analytics/` dashboard widgets, where the
+existing `--chart-*` palette (§7.11) already carries the meaning-bearing
+color and a second unrelated gradient would compete with it.
+
+**Motion scope and restraint.** Three tiers, deliberately not more:
+
+1. **Entrance motion** — page and section content fades/slides in on mount
+   (`fadeUp` + `staggerContainer` for card grids). Runs once, never re-triggers
+   on re-render.
+2. **Idle/ambient motion** — the illustration backgrounds only: slow blob
+   drift, a subtle gradient shift. Reduced to a static frame under
+   `prefers-reduced-motion` (Framer Motion's `useReducedMotion` hook, checked
+   once in `lib/motion.ts` so every consumer inherits it for free).
+3. **Interaction motion** — hover/tap scale on buttons and cards, already
+   partly covered by shadcn's own transitions; Framer Motion is only layered
+   on where `analytics/` and `layout/` components need something a CSS
+   transition cannot express (staggered list entrance, drag, layout
+   animation).
+
+**What does not get animated:** data inside `analytics/charts/*` beyond
+recharts' own built-in transitions, and anything in `components/ui/` (still
+CLI-managed, R-04 — motion wraps it, never edits it).
+
+---
+
+## 7.18 What remains
 
 Part 7 has fixed the frontend structure. Still open across the plan: Part 5
 (ingestion), Part 6 (workers), Part 8 (auth, which §7.9 and §7.12 both defer

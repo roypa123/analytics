@@ -81,6 +81,13 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* Brand accent — marketing/hero surfaces only (Part 7 §7.17, D-24).
+       Never used inside analytics/ dashboard widgets, which carry meaning
+       through the --chart-* palette instead. */
+    --brand-from: oklch(0.6 0.19 280);
+    --brand-via: oklch(0.65 0.2 320);
+    --brand-to: oklch(0.75 0.17 55);
 }
 
 .dark {
@@ -115,6 +122,10 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+
+    --brand-from: oklch(0.68 0.19 280);
+    --brand-via: oklch(0.72 0.2 320);
+    --brand-to: oklch(0.8 0.17 55);
 }
 
 @layer base {
@@ -127,4 +138,15 @@
   html {
     @apply font-sans;
     }
+}
+
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: linear-gradient(135deg, var(--brand-from), var(--brand-via), var(--brand-to));
+  }
+  .text-brand-gradient {
+    background-image: linear-gradient(135deg, var(--brand-from), var(--brand-via), var(--brand-to));
+    background-clip: text;
+    color: transparent;
+  }
 }

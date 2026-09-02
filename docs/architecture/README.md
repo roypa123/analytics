@@ -32,7 +32,7 @@ Radix. Every later part is written against those findings.
 | 4 | [Backend Architecture](04-backend-architecture.md) | FastAPI layering, repositories, transactions, the query engine |
 | 5 | Ingestion Pipeline | *pending* |
 | 6 | Background Processing | *pending* |
-| 7 | [Frontend Architecture](07-frontend-architecture.md) | The ten folders, state split, query keys, components, routing |
+| 7 | [Frontend Architecture](07-frontend-architecture.md) | The ten folders, state split, query keys, components, routing, motion/illustration design system |
 | 8 | [Auth, Tenancy & Access Control](08-auth-and-tenancy.md) | Tokens, two-axis RBAC, per-property access, invitations, API keys |
 | 9 | Migrations & Alembic | *pending* |
 | 10 | Operations | *pending* |
@@ -70,6 +70,7 @@ Decisions that are expensive to reverse. Each is argued where it is made.
 | D-21 | Permissions resolved per request from the DB, not embedded in the token | Part 8 §8.4 |
 | D-22 | One Razorpay subscription per workspace, priced per seat; events are capped, not metered | Part 12 §12.1 |
 | D-23 | Never stop ingesting events for non-payment — degrade reporting instead | Part 12 §12.7 |
+| D-24 | Framer Motion for animation; generated inline SVG/CSS illustration, no external image assets | Part 7 §7.17 |
 
 ## Project-directed constraints
 
