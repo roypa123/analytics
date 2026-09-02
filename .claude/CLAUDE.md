@@ -2,6 +2,20 @@ I want you to act as a Senior Software Architect, Backend Architect, Frontend Ar
 
 I want to build a Google Analytics–like web application for collecting, processing, storing, and visualizing website analytics data.
 
+## Status update (implementation phase)
+
+The planning phase described below is complete. The full technical architecture
+lives in `docs/architecture/` (Parts 0–12, indexed in `docs/architecture/README.md`),
+covering the codebase audit, domain model, system architecture, database design,
+backend layering, frontend structure, auth/tenancy, and Razorpay billing.
+
+**The "do not write application code" restriction below no longer applies.**
+The project has moved into implementation. Code should be written to conform to
+the decisions (`D-nn`), rules (`R-nn`), and constraints (`C-nn`) recorded in
+`docs/architecture/README.md` and detailed in the corresponding part. When an
+implementation question isn't settled by those docs, extend them rather than
+silently deviating — keep the plan and the code in sync.
+
 Critical First Step
 
 Before creating the implementation plan, first study and analyze the existing frontend and backend architecture of the current project.

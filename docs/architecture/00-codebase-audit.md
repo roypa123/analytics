@@ -161,6 +161,18 @@ consequences:
 > components). Instead, add `src/components/ui/` to the lint ignore list for
 > unused-export rules, and note in the frontend README that `ui/` is
 > CLI-managed vendor code, not hand-authored.
+>
+> **Implemented.** `eslint.config.js` carries an override for
+> `src/components/ui/**` and the CLI-generated `src/hooks/use-mobile.ts`
+> disabling `@typescript-eslint/no-unused-vars`,
+> `react-refresh/only-export-components`, and `react-hooks/set-state-in-effect`
+> — the three rules this eslint version enforces more strictly than the
+> shadcn generator's target. `tsconfig.app.json`'s `noUnusedLocals` /
+> `noUnusedParameters` were dropped in favor of the eslint rule specifically
+> *because* eslint overrides are directory-scopable and those tsconfig flags
+> are not — the same unused-import diagnostic would otherwise still fire on
+> vendor files pulled transitively into the `tsc -b` program graph regardless
+> of `include`/`exclude`.
 
 Note that `use-mobile.ts` landed directly in `src/hooks/` — so that folder is no
 longer empty, and its first inhabitant establishes a convention (kebab-case
