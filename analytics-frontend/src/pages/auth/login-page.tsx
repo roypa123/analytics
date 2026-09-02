@@ -1,11 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { motion, useReducedMotion } from "framer-motion"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isApiError } from "@/api/errors"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { GridGlow } from "@/components/illustrations/grid-glow"
@@ -14,16 +16,25 @@ import { useLogin } from "@/hooks/mutations/use-login"
 import { fadeUp } from "@/lib/motion"
 import { loginRoute } from "@/routing/routes/login.route"
 
+type AccountType = "individual" | "organisation"
+
 interface LoginFormValues {
   email: string
   password: string
+  organisationName?: string
 }
 
+// Part 8 §8.8, D-25 — the Individual/Organisation tabs mirror register's.
+// The Organisation tab adds an organisation-name field: the account must
+// hold a membership in a workspace with that exact name, checked
+// server-side after the password (AuthService.login), or the login is
+// rejected with `organisation_mismatch` even though the credentials matched.
 export function LoginPage() {
   const reduceMotion = useReducedMotion()
   const navigate = useNavigate()
   const search = loginRoute.useSearch()
   const login = useLogin()
+  const [accountType, setAccountType] = useState<AccountType>("individual")
   const {
     register,
     handleSubmit,
@@ -31,17 +42,27 @@ export function LoginPage() {
   } = useForm<LoginFormValues>()
 
   const onSubmit = handleSubmit((values) => {
-    login.mutate(values, {
-      onSuccess: () => {
-        void navigate({ to: search.redirect ?? "/dashboard" })
+    login.mutate(
+      {
+        email: values.email,
+        password: values.password,
+        organisationName: accountType === "organisation" ? values.organisationName : undefined,
       },
-    })
+      {
+        onSuccess: () => {
+          void navigate({ to: search.redirect ?? "/dashboard" })
+        },
+      }
+    )
   })
 
   return (
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
       <div className="relative hidden items-center justify-center overflow-hidden bg-muted/40 lg:flex">
         <GridGlow />
+        <Link to="/" className="absolute left-8 top-8 z-10">
+          <Logo />
+        </Link>
         <motion.div
           initial={reduceMotion ? undefined : { opacity: 0, scale: 0.94 }}
           animate={
@@ -76,10 +97,50 @@ export function LoginPage() {
           <Card className="w-full">
             <CardHeader>
               <CardTitle>Sign in</CardTitle>
-              <CardDescription>Access your analytics workspace.</CardDescription>
+              <CardDescription>
+                {accountType === "organisation"
+                  ? "Sign in to your organisation's workspace."
+                  : "Access your analytics workspace."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
+              <Tabs
+                value={accountType}
+                onValueChange={(value) => setAccountType(value as AccountType)}
+                className="mb-5"
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="individual" className="flex-1">
+                    Individual
+                  </TabsTrigger>
+                  <TabsTrigger value="organisation" className="flex-1">
+                    Organisation
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               <form onSubmit={onSubmit} className="flex flex-col gap-4">
+                {accountType === "organisation" && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="organisationName">Organisation</Label>
+                    <Input
+                      id="organisationName"
+                      autoComplete="organization"
+                      placeholder="Acme Inc."
+                      {...register("organisationName", {
+                        required:
+                          accountType === "organisation"
+                            ? "Organisation is required"
+                            : false,
+                      })}
+                    />
+                    {errors.organisationName && (
+                      <p className="text-sm text-destructive">
+                        {errors.organisationName.message}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -104,9 +165,15 @@ export function LoginPage() {
                     <p className="text-sm text-destructive">{errors.password.message}</p>
                   )}
                 </div>
-                {/* Part 8 §8.4 — generic message; never confirm which field was wrong */}
+                {/* Part 8 §8.4 — generic message for bad credentials; never
+                    confirm which field was wrong. organisation_mismatch is
+                    specific since credentials already passed at that point. */}
                 {isApiError(login.error) && (
-                  <p className="text-sm text-destructive">Invalid email or password.</p>
+                  <p className="text-sm text-destructive">
+                    {login.error.code === "organisation_mismatch"
+                      ? "This account has no matching organisation."
+                      : "Invalid email or password."}
+                  </p>
                 )}
                 <Button type="submit" disabled={login.isPending} className="w-full">
                   {login.isPending ? "Signing in…" : "Sign in"}

@@ -10,14 +10,18 @@ class RegisterRequest(CamelModel):
     email: EmailStr
     password: str = Field(min_length=12)
     full_name: str = Field(min_length=1, max_length=200)
-    # Part 8 §8.1, §8.8 — collected explicitly rather than derived from
-    # full_name; becomes the auto-created workspace's display name.
-    organisation_name: str = Field(min_length=1, max_length=200)
+    # Part 8 §8.1, §8.8, D-25 — the "Organisation" signup tab collects this;
+    # the "Individual" tab omits it and the workspace is auto-named instead.
+    organisation_name: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class LoginRequest(CamelModel):
     email: EmailStr
     password: str
+    # Part 8 §8.8, D-25 — sent only from the login page's "Organisation" tab.
+    # When present, the account must hold a membership in a workspace with
+    # this exact name, or the login is rejected even with correct credentials.
+    organisation_name: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class MfaChallengeResponse(CamelModel):

@@ -80,6 +80,7 @@ async def login(
     result = await service.login(
         email=body.email,
         password=body.password,
+        organisation_name=body.organisation_name,
         user_agent=request.headers.get("User-Agent"),
         ip_hash=hash_ip(request),
     )

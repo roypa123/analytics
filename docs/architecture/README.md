@@ -71,7 +71,7 @@ Decisions that are expensive to reverse. Each is argued where it is made.
 | D-22 | One Razorpay subscription per workspace, priced per seat; events are capped, not metered | Part 12 §12.1 |
 | D-23 | Never stop ingesting events for non-payment — degrade reporting instead | Part 12 §12.7 |
 | D-24 | Framer Motion for animation; generated inline SVG/CSS illustration, no external image assets | Part 7 §7.17 |
-| D-25 | Standalone signup asks for an "Organisation name"; invitation-flow registration never does and creates no workspace | Part 8 §8.8 |
+| D-25 | Individual/Organisation tabs on signup (org name asked only on Organisation) and login (org name validated against the account's memberships only on Organisation) | Part 8 §8.8 |
 
 ## Project-directed constraints
 

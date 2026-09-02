@@ -4,12 +4,13 @@ export interface RegisterRequest {
   email: string
   password: string
   fullName: string
-  organisationName: string
+  organisationName?: string
 }
 
 export interface LoginRequest {
   email: string
   password: string
+  organisationName?: string
 }
 
 export interface AccessTokenResponse {

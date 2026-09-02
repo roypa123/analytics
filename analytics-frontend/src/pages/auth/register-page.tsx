@@ -1,11 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { motion, useReducedMotion } from "framer-motion"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isApiError } from "@/api/errors"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { GridGlow } from "@/components/illustrations/grid-glow"
@@ -13,21 +15,25 @@ import { Logo } from "@/components/illustrations/logo"
 import { useRegister } from "@/hooks/mutations/use-register"
 import { fadeUp } from "@/lib/motion"
 
+type AccountType = "individual" | "organisation"
+
 interface RegisterFormValues {
-  organisationName: string
+  organisationName?: string
   fullName: string
   email: string
   password: string
 }
 
-// Part 8 §8.1, §8.8 — the standalone signup path (as opposed to a teammate
+// Part 8 §8.8, D-25 — the standalone signup path (as opposed to a teammate
 // registering to accept an invitation, which does not exist as a route yet
-// and never shows this field): collects the organisation name explicitly
-// rather than deriving a hidden workspace name from full_name.
+// and shows neither tab): the "Organisation" tab collects an organisation
+// name that becomes the workspace's name; the "Individual" tab omits it and
+// the workspace is auto-named server-side. Both tabs hit the same endpoint.
 export function RegisterPage() {
   const reduceMotion = useReducedMotion()
   const navigate = useNavigate()
   const registerAccount = useRegister()
+  const [accountType, setAccountType] = useState<AccountType>("individual")
   const {
     register,
     handleSubmit,
@@ -35,17 +41,28 @@ export function RegisterPage() {
   } = useForm<RegisterFormValues>()
 
   const onSubmit = handleSubmit((values) => {
-    registerAccount.mutate(values, {
-      onSuccess: () => {
-        void navigate({ to: "/dashboard" })
+    registerAccount.mutate(
+      {
+        email: values.email,
+        password: values.password,
+        fullName: values.fullName,
+        organisationName: accountType === "organisation" ? values.organisationName : undefined,
       },
-    })
+      {
+        onSuccess: () => {
+          void navigate({ to: "/dashboard" })
+        },
+      }
+    )
   })
 
   return (
     <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
       <div className="relative hidden items-center justify-center overflow-hidden bg-muted/40 lg:flex">
         <GridGlow />
+        <Link to="/" className="absolute left-8 top-8 z-10">
+          <Logo />
+        </Link>
         <motion.div
           initial={reduceMotion ? undefined : { opacity: 0, scale: 0.94 }}
           animate={
@@ -85,23 +102,43 @@ export function RegisterPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <Tabs
+                value={accountType}
+                onValueChange={(value) => setAccountType(value as AccountType)}
+                className="mb-5"
+              >
+                <TabsList className="w-full">
+                  <TabsTrigger value="individual" className="flex-1">
+                    Individual
+                  </TabsTrigger>
+                  <TabsTrigger value="organisation" className="flex-1">
+                    Organisation
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               <form onSubmit={onSubmit} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="organisationName">Organisation name</Label>
-                  <Input
-                    id="organisationName"
-                    autoComplete="organization"
-                    placeholder="Acme Inc."
-                    {...register("organisationName", {
-                      required: "Organisation name is required",
-                    })}
-                  />
-                  {errors.organisationName && (
-                    <p className="text-sm text-destructive">
-                      {errors.organisationName.message}
-                    </p>
-                  )}
-                </div>
+                {accountType === "organisation" && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="organisationName">Organisation name</Label>
+                    <Input
+                      id="organisationName"
+                      autoComplete="organization"
+                      placeholder="Acme Inc."
+                      {...register("organisationName", {
+                        required:
+                          accountType === "organisation"
+                            ? "Organisation name is required"
+                            : false,
+                      })}
+                    />
+                    {errors.organisationName && (
+                      <p className="text-sm text-destructive">
+                        {errors.organisationName.message}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="fullName">Full name</Label>
                   <Input

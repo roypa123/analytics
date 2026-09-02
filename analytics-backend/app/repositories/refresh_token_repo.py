@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.core.refresh_token import RefreshToken
+from app.utils.time import utcnow
 
 
 def hash_token(raw_token: str) -> bytes:
@@ -52,4 +53,4 @@ class RefreshTokenRepository:
         )
         result = await self._session.execute(stmt)
         for token in result.scalars().all():
-            token.revoked_at = datetime.utcnow()
+            token.revoked_at = utcnow()

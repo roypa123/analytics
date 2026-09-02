@@ -444,29 +444,54 @@ endpoint that doesn't."
 
 ## 8.8 Invitation and onboarding flows
 
-### Solo signup (B2C)
+### Standalone signup: Individual vs. Organisation tabs
 
-> **Decision D-25.** The standalone registration form asks for an
-> **"Organisation name"** field. It is a required input on `POST
-> /auth/register`, alongside email, password, and full name, and becomes the
-> workspace's `name` directly (no more deriving it as `"<full_name>'s
-> Workspace"`). A teammate registering to accept an invitation (§8.8 "Adding a
-> teammate," below) never sees this field and never causes a workspace to be
-> created — they are joining one that already exists.
+> **Decision D-25 (revised).** The standalone registration form presents two
+> tabs, **"Individual"** and **"Organisation"**, which change the form rather
+> than routing to different endpoints:
+>
+> - **Organisation tab** — adds an **"Organisation name"** field. Submitted as
+>   `organisationName` on `POST /auth/register` and becomes the workspace's
+>   `name` directly.
+> - **Individual tab** — no organisation field. `organisationName` is omitted
+>   from the request, and the workspace is auto-named `"<full_name>'s
+>   Workspace"` server-side, same as before D-25.
+>
+> `organisation_name` is therefore **optional** in `RegisterRequest` — the
+> tab controls whether the client sends it, not a separate schema or route.
+> Both tabs create exactly one workspace with the new account as `owner`
+> (D-19); the only difference is who names it. A teammate registering to
+> accept an invitation (§8.8 "Adding a teammate," below) sees **neither**
+> tab and never causes a workspace to be created — they are joining one that
+> already exists.
 
-1. Register (email, password, full name, **organisation name**) → email
-   verification.
-2. **A workspace is created** using the submitted organisation name, plan
-   `free`, with the account as `owner`.
+1. Register (email, password, full name, tab selection, and — Organisation
+   tab only — organisation name) → email verification.
+2. **A workspace is created**, named from the submitted organisation name or
+   auto-generated from full name depending on the tab, plan `free`, with the
+   account as `owner`.
 3. Create first property → tracking snippet → install verification.
 4. The members and permissions UI is **hidden** while the workspace has one
    seat and the plan has no seat entitlement (Part 12).
 
-The user still experiences a single-player product — inviting a second member
-is the entire B2C→B2B upgrade, per D-19 — but the tenancy noun is surfaced
-under a friendlier name ("organisation") rather than hidden outright. This is
-a UI/copy choice, not a schema change: the underlying table stays
-`core.workspaces`.
+The user still experiences a single-player product on the Individual tab —
+inviting a second member is the entire B2C→B2B upgrade, per D-19 — but
+someone who already knows they're setting up a team can name it up front on
+the Organisation tab. This is a UI/copy choice, not a schema change: the
+underlying table stays `core.workspaces`, and both tabs hit the same
+endpoint.
+
+The login page shows the same two tabs. The Individual tab is plain
+`email`/`password`. The **Organisation tab adds an "Organisation" field**:
+`POST /auth/login` accepts an optional `organisationName`, and when present,
+`AuthService.login` — after the password check succeeds — looks up the
+account's workspaces (`WorkspaceRepository.list_for_account`) and rejects the
+login with a distinct `organisation_mismatch` error if none match by name.
+This is deliberately **not** folded into the generic `invalid_credentials`
+error: by the time this check runs the credentials are already known-correct,
+so there is no enumeration risk in being specific about what's wrong. It is
+still just a workspace-membership check, not a second authentication
+factor — the account, not the organisation name, is what's authenticated.
 
 ### Adding a teammate (B2C → B2B)
 

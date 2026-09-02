@@ -21,6 +21,7 @@ from app.repositories.account_repo import AccountRepository
 from app.repositories.refresh_token_repo import RefreshTokenRepository
 from app.repositories.workspace_repo import MembershipRepository, WorkspaceRepository
 from app.utils.slug import slugify
+from app.utils.time import utcnow
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ class AuthService:
         email: str,
         password: str,
         full_name: str,
-        organisation_name: str,
+        organisation_name: str | None,
         user_agent: str | None,
         ip_hash: bytes | None,
     ) -> AuthResult:
@@ -61,15 +62,17 @@ class AuthService:
                 email=email, password_hash=hash_password(password), full_name=full_name
             )
 
-            # Part 8 §8.8 — solo signup: auto-create the workspace, make the
-            # new account its owner. No "personal account" special case (D-19).
-            # The organisation name is collected on this form rather than
-            # derived from full_name; an invited teammate registering to
-            # accept an invitation never sees this field and never gets a
-            # workspace created here (§8.8 "Adding a teammate" — still pending
+            # Part 8 §8.8 — auto-create the workspace, make the new account
+            # its owner. No "personal account" special case (D-19). The
+            # "Organisation" signup tab supplies organisation_name directly;
+            # the "Individual" tab omits it, so the workspace is named from
+            # full_name instead. An invited teammate registering to accept an
+            # invitation never sees either tab and never gets a workspace
+            # created here (§8.8 "Adding a teammate" — still pending
             # implementation, tracked separately from this endpoint).
+            workspace_name = organisation_name or f"{full_name}'s Workspace"
             workspace = await self._workspaces.create(
-                name=organisation_name, slug=slugify(organisation_name)
+                name=workspace_name, slug=slugify(workspace_name)
             )
             await self._memberships.add(
                 workspace_id=workspace.id, account_id=account.id, role="owner"
@@ -78,7 +81,13 @@ class AuthService:
             return await self._issue_session(account, user_agent=user_agent, ip_hash=ip_hash)
 
     async def login(
-        self, *, email: str, password: str, user_agent: str | None, ip_hash: bytes | None
+        self,
+        *,
+        email: str,
+        password: str,
+        organisation_name: str | None,
+        user_agent: str | None,
+        ip_hash: bytes | None,
     ) -> AuthResult:
         async with self._session.begin():
             account = await self._accounts.get_by_email(email)
@@ -91,6 +100,21 @@ class AuthService:
             if not verify_password(password, account.password_hash):
                 raise AuthenticationError("Invalid email or password.", code="invalid_credentials")
 
+            # Only asserted from the login page's "Organisation" tab (D-25).
+            # Checked after the password, since the account is already
+            # authenticated at this point — this is a workspace-membership
+            # check, not a second credentials check, so it gets its own
+            # specific error rather than the generic invalid_credentials one.
+            if organisation_name is not None:
+                workspaces = await self._workspaces.list_for_account(account.id)
+                if not any(
+                    w.name.casefold() == organisation_name.casefold() for w in workspaces
+                ):
+                    raise AuthenticationError(
+                        "This account has no matching organisation.",
+                        code="organisation_mismatch",
+                    )
+
             return await self._issue_session(account, user_agent=user_agent, ip_hash=ip_hash)
 
     async def refresh(
@@ -101,7 +125,7 @@ class AuthService:
         re-authentication, rather than silently failing."""
         async with self._session.begin():
             token = await self._refresh_tokens.get_by_raw_token(raw_refresh_token)
-            if token is None or token.expires_at < datetime.now(UTC):
+            if token is None or token.expires_at < utcnow():
                 raise AuthenticationError("Session expired.", code="session_expired")
 
             if token.revoked_at is not None or token.used_at is not None:
@@ -110,7 +134,7 @@ class AuthService:
                     "Session invalid — possible token replay.", code="token_replay_detected"
                 )
 
-            token.used_at = datetime.now(UTC)
+            token.used_at = utcnow()
 
             account = await self._accounts.get_by_id(token.account_id)
             if account is None:
@@ -132,12 +156,16 @@ class AuthService:
         access_token = issue_access_token(account.id, session_id, self._settings)
 
         raw_refresh_token = secrets.token_urlsafe(32)
+        # Aware for the AuthResult/cookie (Starlette's set_cookie requires a
+        # UTC-aware datetime for `expires`); naive for the DB write, since
+        # every core.* timestamp column is TIMESTAMP WITHOUT TIME ZONE and
+        # asyncpg refuses to bind an aware value to one.
         expires_at = datetime.now(UTC) + timedelta(days=self._settings.refresh_token_ttl_days)
         await self._refresh_tokens.create(
             account_id=account.id,
             family_id=family_id or uuid.uuid4(),
             raw_token=raw_refresh_token,
-            expires_at=expires_at,
+            expires_at=expires_at.replace(tzinfo=None),
             user_agent=user_agent,
             ip_hash=ip_hash,
         )
