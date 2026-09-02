@@ -774,6 +774,16 @@ section below) doesn't exist on the backend yet, so there is nothing to query.
 Splits into the five dedicated pages above once that endpoint lands and the
 tab list outgrows one file.
 
+**`realtime-page.tsx`.** Built against the three `analytics/realtime/*`
+components listed above (`realtime-counter`, `realtime-pulse`,
+`realtime-page-list`), all presentational per Rule R-04 — the page owns the
+(currently placeholder) `count`/`pages` values and passes them down. No
+realtime endpoint exists yet, so the hero counter renders `0` and the active
+pages list renders its own empty state rather than a fake "connecting…"
+spinner. The dashboard's own "Right now" card reuses `RealtimeCounter`
+directly (not a separate mini version) and links to `/realtime`, so the two
+pages don't drift into two different visual treatments of the same concept.
+
 **A page's job** is to read route params and search params, call the query
 hooks, handle the loading/error/empty triad, and lay out `analytics/`
 components. Pages are the only place `hooks/queries/*` is called.
@@ -807,6 +817,7 @@ src/routing/
 /login                                     public
 /dashboard                                 the Tier-1 overview (moves under /p/:propertyId later)
 /reports?dimension=pages                   breakdown tables, tab per dimension (interim — see Pages, above)
+/realtime                                  visitors in the last 30 minutes (moves under /p/:propertyId later)
 /p/:propertyId                             dashboard
 /p/:propertyId/reports/pages?from=…&to=…   report, state in search params
 /p/:propertyId/realtime

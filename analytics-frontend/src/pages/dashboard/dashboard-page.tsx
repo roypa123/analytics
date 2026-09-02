@@ -9,7 +9,6 @@ import {
   LineChart,
   Link2,
   Percent,
-  Radio,
   Users,
 } from "lucide-react"
 
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-state"
+import { RealtimeCounter } from "@/components/analytics/realtime/realtime-counter"
 import { useProperties } from "@/hooks/queries/use-properties"
 import { cardTap, cardVariants, fadeUp, iconPop, staggerContainer } from "@/lib/motion"
 
@@ -131,16 +131,14 @@ export function DashboardPage() {
               <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="text-base">Right now</CardTitle>
-                  <CardDescription>Visitors active in the last 30 minutes.</CardDescription>
+                  <CardDescription>
+                    <Link to="/realtime" className="underline underline-offset-4">
+                      View realtime
+                    </Link>
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col items-center justify-center gap-2 py-6">
-                  <div className="flex items-center gap-2">
-                    <Radio className="size-4 text-muted-foreground" />
-                    <span className="text-3xl font-semibold tabular-nums">0</span>
-                  </div>
-                  <p className="text-center text-xs text-muted-foreground">
-                    Realtime arrives with the ingestion pipeline.
-                  </p>
+                <CardContent>
+                  <RealtimeCounter count={0} label="Visitors active" />
                 </CardContent>
               </Card>
             </motion.div>
