@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { useForm } from "react-hook-form"
 
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { isApiError } from "@/api/errors"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { GridGlow } from "@/components/illustrations/grid-glow"
+import { Logo } from "@/components/illustrations/logo"
 import { useLogin } from "@/hooks/mutations/use-login"
 import { fadeUp } from "@/lib/motion"
 import { loginRoute } from "@/routing/routes/login.route"
@@ -19,6 +20,7 @@ interface LoginFormValues {
 }
 
 export function LoginPage() {
+  const reduceMotion = useReducedMotion()
   const navigate = useNavigate()
   const search = loginRoute.useSearch()
   const login = useLogin()
@@ -41,9 +43,20 @@ export function LoginPage() {
       <div className="relative hidden items-center justify-center overflow-hidden bg-muted/40 lg:flex">
         <GridGlow />
         <motion.div
-          initial={{ opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          initial={reduceMotion ? undefined : { opacity: 0, scale: 0.94 }}
+          animate={
+            reduceMotion
+              ? { opacity: 1, scale: 1 }
+              : { opacity: 1, scale: 1, y: [0, -10, 0] }
+          }
+          transition={
+            reduceMotion
+              ? { duration: 0.4 }
+              : {
+                  default: { duration: 0.6, ease: "easeOut" },
+                  y: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 },
+                }
+          }
           className="relative z-10 w-full max-w-sm px-10"
         >
           <AnalyticsHero className="w-full drop-shadow-xl" />
@@ -57,11 +70,8 @@ export function LoginPage() {
           variants={fadeUp}
           className="w-full max-w-sm"
         >
-          <Link
-            to="/"
-            className="mb-8 block text-lg font-semibold tracking-tight lg:hidden"
-          >
-            Analytics
+          <Link to="/" className="mb-8 inline-block lg:hidden">
+            <Logo />
           </Link>
           <Card className="w-full">
             <CardHeader>

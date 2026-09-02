@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router"
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { BarChart3, Globe2, ShieldCheck, Zap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { BlobBackground } from "@/components/illustrations/blob-background"
+import { Logo } from "@/components/illustrations/logo"
 import { fadeUp, staggerContainer } from "@/lib/motion"
 
 const FEATURES = [
@@ -34,12 +35,14 @@ const FEATURES = [
 // Part 7 §7.12, §7.17 — the public landing page at "/", a sibling of
 // loginRoute on rootRoute rather than a child of the authenticated appRoute.
 export function LandingPage() {
+  const reduceMotion = useReducedMotion()
+
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-background">
       <BlobBackground className="opacity-70" />
 
       <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-        <span className="text-lg font-semibold tracking-tight">Analytics</span>
+        <Logo />
         <Button render={<Link to="/login" />} variant="ghost">
           Sign in
         </Button>
@@ -75,9 +78,20 @@ export function LandingPage() {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            initial={reduceMotion ? undefined : { opacity: 0, scale: 0.94 }}
+            animate={
+              reduceMotion
+                ? { opacity: 1, scale: 1 }
+                : { opacity: 1, scale: 1, y: [0, -10, 0] }
+            }
+            transition={
+              reduceMotion
+                ? { duration: 0.4 }
+                : {
+                    default: { duration: 0.6, ease: "easeOut" },
+                    y: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 },
+                  }
+            }
             className="mx-auto w-full max-w-md"
           >
             <AnalyticsHero className="w-full drop-shadow-xl" />
@@ -106,7 +120,7 @@ export function LandingPage() {
       </main>
 
       <footer className="relative z-10 border-t px-6 py-6 text-center text-sm text-muted-foreground sm:px-10">
-        © {new Date().getFullYear()} Analytics. All rights reserved.
+        © {new Date().getFullYear()} Nexlytics. All rights reserved.
       </footer>
     </div>
   )

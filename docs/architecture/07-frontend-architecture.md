@@ -1042,6 +1042,12 @@ two-line entry it currently is.
 > illustration. No external image assets, no icon packs beyond `lucide-react`
 > (already installed), no stock photography or CDN-hosted media.
 
+The product is named **Nexlytics**. The name and mark appear only through
+`components/illustrations/logo.tsx` (see below) and `index.html`'s `<title>` —
+never inlined as a string literal elsewhere, so it is not scattered across
+pages that will need to be found and edited individually if the name changes
+again.
+
 **Why generated illustration over image files.** An analytics product with no
 design team on hand needs art that (a) never goes stale, (b) themes correctly
 in light and dark without shipping two image variants, and (c) has zero
@@ -1060,7 +1066,11 @@ three; a PNG hero graphic satisfies none of them.
   presentational components taking no props beyond `className`. They compose
   with `framer-motion`'s `motion.svg`/`motion.path` for entrance and idle
   animation (e.g. a slow path-draw on the hero chart motif, a slow drift on
-  background blobs).
+  background blobs). This is also where the product wordmark lives:
+  `logo.tsx` exports `LogoMark` (the gradient-filled bolt path, shared with
+  `public/favicon.svg`) and `Logo` (mark + "Nexlytics" wordmark), used in the
+  marketing header and the auth page's mobile-only brand link — never
+  hardcoded as plain text so a future rebrand is a one-file change.
 
 **Token additions in `index.css`.** The existing semantic tokens
 (`--primary`, `--background`, …) stay untouched — shadcn `ui/` components
@@ -1103,7 +1113,60 @@ CLI-managed, R-04 — motion wraps it, never edits it).
 
 ---
 
-## 7.18 What remains
+## 7.18 Responsive design: desktop, tablet, mobile
+
+> **Rule R-13.** Every screen — marketing, auth, and dashboard alike — must be
+> fully usable at desktop, tablet, and mobile widths. "Usable" means no
+> horizontal scroll, no clipped or overlapping controls, and no element that
+> requires a pointer (hover-only menus, hover-revealed actions) to operate on
+> a touch device. This is not a nice-to-have for the marketing page only; it
+> applies to the authenticated dashboard just as much, since properties are
+> checked from phones as often as desks.
+
+**Breakpoints.** Tailwind v4's defaults, used as-is, no custom scale:
+
+| Alias | Min width | Treated as |
+|---|---|---|
+| *(none)* | 0 | Mobile — the base, unprefixed styles |
+| `sm` | 640px | Large phone / small tablet portrait |
+| `md` | 768px | Tablet |
+| `lg` | 1024px | Small desktop / tablet landscape |
+| `xl` | 1280px | Desktop |
+
+Base (unprefixed) styles are always the mobile layout; wider breakpoints are
+additive (`sm:`, `md:`, `lg:`), consistent with the mobile-first classes
+already in `login-page.tsx` (`grid-cols-1 lg:grid-cols-2`) and
+`landing-page.tsx` (`md:grid-cols-2 lg:grid-cols-4`).
+
+**What this means per surface:**
+
+- **Dashboard (`pages/dashboard/`, future `analytics/` widgets).** The metric
+  grid and any future chart grid collapse to a single column below `sm`,
+  never fixed-width. A sidebar/nav shell (once one exists, per §7.18) must
+  collapse to a `Sheet`-based drawer below `lg` rather than a permanently
+  docked rail — this is what `hooks/use-mobile.ts` (§7.7) exists to drive.
+- **Auth pages.** The illustration column (`AnalyticsHero`/`GridGlow`) is
+  already `hidden` below `lg` — decorative panels never get their own
+  breakpoint-specific redesign, they simply drop out, per the existing
+  pattern in `login-page.tsx`.
+- **Marketing/landing.** Hero and feature grid already reflow
+  (`grid-cols-1` → `md:grid-cols-2` → `lg:grid-cols-4`); any new marketing
+  section follows the same progression rather than inventing a new one.
+- **Tables and wide data.** A component wider than its container (a data
+  table, a wide chart) scrolls horizontally inside its own
+  `overflow-x-auto` wrapper — the page itself must never scroll sideways.
+- **Touch targets.** Interactive elements stay at shadcn's default sizing
+  (`size-9`/`h-9` and up) or larger on touch-primary breakpoints; nothing
+  interactive is shrunk below that to fit a narrow layout.
+
+**Verification.** Before a UI change is called done, check it at three
+concrete widths, not just "resize until it looks fine": 375px (phone),
+768px (tablet), and 1440px (desktop) — matching the task-level instruction
+to test UI changes in a real browser, not just typecheck/build.
+
+---
+
+## 7.19 What remains
 
 Part 7 has fixed the frontend structure. Still open across the plan: Part 5
 (ingestion), Part 6 (workers), Part 8 (auth, which §7.9 and §7.12 both defer

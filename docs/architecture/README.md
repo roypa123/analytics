@@ -32,7 +32,7 @@ Radix. Every later part is written against those findings.
 | 4 | [Backend Architecture](04-backend-architecture.md) | FastAPI layering, repositories, transactions, the query engine |
 | 5 | Ingestion Pipeline | *pending* |
 | 6 | Background Processing | *pending* |
-| 7 | [Frontend Architecture](07-frontend-architecture.md) | The ten folders, state split, query keys, components, routing, motion/illustration design system |
+| 7 | [Frontend Architecture](07-frontend-architecture.md) | The ten folders, state split, query keys, components, routing, motion/illustration design system, responsive design |
 | 8 | [Auth, Tenancy & Access Control](08-auth-and-tenancy.md) | Tokens, two-axis RBAC, per-property access, invitations, API keys |
 | 9 | Migrations & Alembic | *pending* |
 | 10 | Operations | *pending* |
@@ -99,6 +99,7 @@ consequences are traceable.
 | R-10 | Verify webhook signatures against raw bytes, before parsing, in constant time | Part 12 §12.9 |
 | R-11 | Every subscription state transition is guarded by a monotonic timestamp check | Part 12 §12.9 |
 | R-12 | Nightly reconciliation of local billing state against Razorpay | Part 12 §12.10 |
+| R-13 | Every screen must be fully usable at desktop, tablet, and mobile widths — no exceptions for the dashboard | Part 7 §7.18 |
 
 ## Action register
 

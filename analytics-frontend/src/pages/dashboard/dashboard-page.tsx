@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCurrentAccount } from "@/hooks/queries/use-current-account"
 import { useLogout } from "@/hooks/mutations/use-logout"
-import { fadeUp, staggerContainer } from "@/lib/motion"
+import { cardTap, cardVariants, fadeUp, iconPop, staggerContainer } from "@/lib/motion"
 
 const PLACEHOLDER_METRICS = [
   { label: "Sessions", value: "—", icon: Users },
@@ -29,10 +29,13 @@ export function DashboardPage() {
       variants={staggerContainer}
       className="flex min-h-dvh flex-col gap-6 p-6"
     >
-      <motion.header variants={fadeUp} className="flex items-center justify-between">
-        <div>
+      <motion.header
+        variants={fadeUp}
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="truncate text-sm text-muted-foreground">
             {isLoading ? (
               <Skeleton className="mt-1 h-4 w-40" />
             ) : (
@@ -40,18 +43,31 @@ export function DashboardPage() {
             )}
           </p>
         </div>
-        <Button variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>
+        <Button
+          variant="outline"
+          onClick={() => logout.mutate()}
+          disabled={logout.isPending}
+          className="self-start sm:self-auto"
+        >
           Sign out
         </Button>
       </motion.header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {PLACEHOLDER_METRICS.map((metric) => (
-          <motion.div key={metric.label} variants={fadeUp}>
-            <Card>
+          <motion.div
+            key={metric.label}
+            variants={cardVariants}
+            whileHover="hover"
+            whileTap={cardTap}
+            className="cursor-default"
+          >
+            <Card className="overflow-hidden transition-shadow duration-300 hover:shadow-lg hover:shadow-primary/5">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardDescription>{metric.label}</CardDescription>
-                <metric.icon className="size-4 text-muted-foreground" strokeWidth={1.5} />
+                <motion.span variants={iconPop} className="text-muted-foreground">
+                  <metric.icon className="size-4" strokeWidth={1.5} />
+                </motion.span>
               </CardHeader>
               <CardContent>
                 <CardTitle className="text-2xl">{metric.value}</CardTitle>
