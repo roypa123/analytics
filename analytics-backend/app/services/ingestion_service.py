@@ -87,7 +87,7 @@ class IngestionService:
         page_ctx = parse_page_url(payload.page_url)
         referrer_ctx = parse_referrer_url(payload.referrer_url, page_ctx.hostname)
         ua_info = parse_user_agent(user_agent)
-        country_code = lookup_country(client_ip, self._settings)
+        country_code = await lookup_country(client_ip, self._settings)
         channel_group = classify_channel(
             utm_source=page_ctx.utm_source,
             utm_medium=page_ctx.utm_medium,
