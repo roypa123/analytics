@@ -44,3 +44,13 @@ async def list_properties(
     service = PropertyService(session)
     properties = await service.list_for_account(account.id)
     return Envelope(data=[_summary(p) for p in properties])
+
+
+@router.delete("/{property_id}", status_code=204)
+async def delete_property(
+    property_id: int,
+    account: Account = Depends(get_current_account),
+    session: AsyncSession = Depends(get_write_session),
+) -> None:
+    service = PropertyService(session)
+    await service.delete_property(account_id=account.id, property_id=property_id)

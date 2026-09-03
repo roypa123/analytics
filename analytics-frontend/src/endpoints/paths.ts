@@ -13,6 +13,7 @@ export const paths = {
   },
   properties: {
     root: "/properties",
+    detail: (propertyId: number) => `/properties/${propertyId}`,
   },
   reports: {
     // Part 4 §4.14 — property-scoped analytics routes, mirrors

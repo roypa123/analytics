@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.types import PropertyRole
 from app.models.core.property import Property
 from app.models.core.property_access import PropertyAccess
+from app.utils.time import utcnow
 
 
 def _generate_tracking_id() -> str:
@@ -52,6 +53,14 @@ class PropertyRepository:
         )
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
+
+    async def soft_delete(self, property_: Property) -> None:
+        """Sets `deleted_at` rather than issuing a DELETE — `events_raw`
+        (Part 3 §3.1) keeps referencing this property's id by value, not a
+        foreign key, so a hard delete would silently orphan historical data
+        instead of failing loudly."""
+        property_.deleted_at = utcnow()
+        await self._session.flush()
 
 
 class PropertyAccessRepository:

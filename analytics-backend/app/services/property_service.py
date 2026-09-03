@@ -57,3 +57,15 @@ class PropertyService:
         if prop is None or prop.workspace_id != workspace_id:
             raise NotFoundError("Property not found.", code="property_not_found")
         return prop
+
+    async def delete_property(self, *, account_id: int, property_id: int) -> None:
+        """Soft-delete only (`PropertyRepository.soft_delete`) — the
+        tracking id and any events already collected under it are kept, the
+        property just stops appearing in `list_for_account` and the
+        collector rejects further events against its `tracking_id`."""
+        async with self._session.begin():
+            workspace_id = await self._resolve_workspace_id(account_id)
+            prop = await self._properties.get_by_id(property_id)
+            if prop is None or prop.workspace_id != workspace_id:
+                raise NotFoundError("Property not found.", code="property_not_found")
+            await self._properties.soft_delete(prop)

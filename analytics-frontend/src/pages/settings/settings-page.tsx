@@ -1,9 +1,21 @@
+import { Link } from "@tanstack/react-router"
 import { motion } from "framer-motion"
-import { UsersRound } from "lucide-react"
+import { Globe, Plus, UsersRound } from "lucide-react"
 import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 
 import { isApiError } from "@/api/errors"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,16 +39,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useAcceptInvitation } from "@/hooks/mutations/use-accept-invitation"
+import { useDeleteProperty } from "@/hooks/mutations/use-delete-property"
 import { useInviteMember } from "@/hooks/mutations/use-invite-member"
 import { useRemoveMember } from "@/hooks/mutations/use-remove-member"
 import { useRevokeInvitation } from "@/hooks/mutations/use-revoke-invitation"
 import { useUpdateMemberRole } from "@/hooks/mutations/use-update-member-role"
 import { useUpdateWorkspace } from "@/hooks/mutations/use-update-workspace"
 import { useCurrentAccount } from "@/hooks/queries/use-current-account"
+import { useProperties } from "@/hooks/queries/use-properties"
 import { useWorkspaceInvitations } from "@/hooks/queries/use-workspace-invitations"
 import { useWorkspaceMembers } from "@/hooks/queries/use-workspace-members"
 import { useWorkspaces } from "@/hooks/queries/use-workspaces"
 import { fadeUp, staggerContainer } from "@/lib/motion"
+import type { PropertySummary } from "@/types/api/property"
 import type { WorkspaceRole, WorkspaceSummary } from "@/types/api/workspace"
 import { EMAIL_PATTERN } from "@/utils/validation"
 
@@ -44,6 +59,98 @@ const ROLE_LABELS: Record<WorkspaceRole, string> = {
   owner: "Owner",
   admin: "Admin",
   member: "Member",
+}
+
+interface PropertyRowProps {
+  property: PropertySummary
+  isDeleting: boolean
+  onConfirmDelete: () => void
+}
+
+function PropertyRow({ property, isDeleting, onConfirmDelete }: PropertyRowProps) {
+  return (
+    <li className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
+      <div className="flex flex-col">
+        <span className="font-medium">{property.name}</span>
+        <span className="text-xs text-muted-foreground">{property.domain}</span>
+      </div>
+      <AlertDialog>
+        <AlertDialogTrigger render={<Button variant="ghost" size="sm" />}>
+          Delete
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {property.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tracking stops immediately and the property disappears from your
+              dashboard and reports. Data already collected is kept, but this
+              can't be undone from the UI.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={onConfirmDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </li>
+  )
+}
+
+// Property deletion has no per-role restriction server-side yet
+// (`PropertyService` trusts workspace membership — Part 8 §8.7's
+// `AuthContext` enforcement layer is still pending, A-18), so every member
+// sees the same Delete action here, unlike MembersCard's owner/admin gating.
+function PropertiesCard() {
+  const { data, isLoading } = useProperties()
+  const deleteProperty = useDeleteProperty()
+  const properties = data ?? []
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="text-base">Properties</CardTitle>
+          <CardDescription>Websites tracked in this workspace.</CardDescription>
+        </div>
+        <Button size="sm" render={<Link to="/onboarding/property" />}>
+          <Plus className="size-4" />
+          New property
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : properties.length === 0 ? (
+          <Empty className="border-0 py-6">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Globe />
+              </EmptyMedia>
+              <EmptyTitle>No properties yet</EmptyTitle>
+              <EmptyDescription>Add a website to start tracking it.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {properties.map((property) => (
+              <PropertyRow
+                key={property.id}
+                property={property}
+                isDeleting={deleteProperty.isPending && deleteProperty.variables === property.id}
+                onConfirmDelete={() => deleteProperty.mutate(property.id)}
+              />
+            ))}
+          </ul>
+        )}
+        {isApiError(deleteProperty.error) && (
+          <p className="mt-3 text-sm text-destructive">Something went wrong. Please try again.</p>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 interface WorkspaceCardProps {
@@ -468,6 +575,10 @@ export function SettingsPage() {
         <Skeleton className="h-64 w-full" />
       ) : (
         <>
+          <motion.div variants={fadeUp}>
+            <PropertiesCard />
+          </motion.div>
+
           <motion.div variants={fadeUp} className="max-w-xl">
             <WorkspaceCard
               workspace={workspace}

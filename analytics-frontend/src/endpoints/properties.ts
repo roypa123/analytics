@@ -17,3 +17,7 @@ export async function listProperties(): Promise<PropertySummary[]> {
   const res = await client.get<Envelope<PropertySummary[]>>(paths.properties.root)
   return res.data.data
 }
+
+export async function deleteProperty(propertyId: number): Promise<void> {
+  await client.delete(paths.properties.detail(propertyId))
+}

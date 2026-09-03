@@ -49,12 +49,13 @@
     "install snippet" page, and data-collector-url with wherever you're
     running `uvicorn app.collector.main:app` (defaults to :8001).
   -->
-  <script
+  <!-- <script
     src="tracker.js"
     data-tracking-id="ap_q9llOzLkRHQCWR0w"
     data-collector-url="http://localhost:8001"
     data-debug="true"
-  ></script>
+  ></script> -->
+  <script defer src="https://cdn.nexlytics.io/tracker.js" data-tracking-id="ap_OZRrtiaRT6vkArpj"></script>
   <script>
     document.getElementById("get-started").addEventListener("click", function () {
       window.nexlytics("cta_click", { label: "get_started", location: "hero" });
