@@ -22,6 +22,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.core.database import get_database
@@ -73,7 +74,19 @@ def create_app() -> FastAPI:
         return FileResponse(_TRACKER_JS_PATH, media_type="text/javascript")
 
     @app.post("/event", status_code=204)
-    async def collect_event(payload: CollectorEventRequest, request: Request) -> Response:
+    async def collect_event(request: Request) -> Response:
+        # Body is parsed manually, ignoring the Content-Type header: the
+        # tracker sends "text/plain" on purpose (a CORS-safelisted type, so
+        # sendBeacon/fetch never need a preflight OPTIONS round-trip — see
+        # tracker.js), which would make FastAPI's normal `payload:
+        # CollectorEventRequest` parameter reject the body instead of
+        # JSON-parsing it, since that shortcut keys off Content-Type.
+        try:
+            payload = CollectorEventRequest.model_validate_json(await request.body())
+        except ValidationError as exc:
+            logger.info("collector_dropped", reason="malformed_payload", errors=exc.errors())
+            return Response(status_code=204)
+
         settings = get_settings()
         user_agent = request.headers.get("user-agent", "")
         client_ip = _client_ip(request)

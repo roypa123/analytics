@@ -70,15 +70,24 @@
     var json = JSON.stringify(body);
     var delivered = false;
 
+    // Content-Type is deliberately "text/plain", not "application/json": it's
+    // one of the three CORS-safelisted content types, so a cross-origin
+    // sendBeacon/fetch never triggers a preflight OPTIONS round-trip. That
+    // round-trip was the actual bug behind pageviews silently vanishing on
+    // fast navigations — a fetch that still needs a preflight can get
+    // abandoned by the browser when the page unloads before the OPTIONS+POST
+    // pair finishes, even with keepalive:true. The collector
+    // (app/collector/main.py) parses the body as JSON regardless of the
+    // declared Content-Type, so the payload itself is unchanged.
     if (navigator.sendBeacon) {
-      var blob = new Blob([json], { type: "application/json" });
+      var blob = new Blob([json], { type: "text/plain" });
       delivered = navigator.sendBeacon(url, blob);
     }
 
     if (!delivered) {
       fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "text/plain" },
         body: json,
         keepalive: true,
       }).catch(function (err) {
