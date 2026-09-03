@@ -1,9 +1,13 @@
 """Part 4 §4.6. `core.workspaces` and the memberships that grant access to them."""
 
+from dataclasses import dataclass
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.types import WorkspaceRole
+from app.models.core.account import Account
 from app.models.core.membership import Membership
 from app.models.core.workspace import Workspace
 
@@ -22,13 +26,39 @@ class WorkspaceRepository:
         return await self._session.get(Workspace, workspace_id)
 
     async def list_for_account(self, account_id: int) -> list[Workspace]:
+        """Ordered by `joined_at` so "the first one" (D-25's one-workspace-
+        per-account MVP simplification, still relied on by
+        `PropertyService`) is at least deterministic — the account's own,
+        oldest workspace — rather than whatever order the join happens to
+        return. Accepting an invitation (Part 8 §8.8) is the one way an
+        account ends up in more than one today; every workspace-scoped
+        endpoint in `app/api/v1/workspace.py` takes an explicit
+        `workspace_id` precisely so that case doesn't silently operate on
+        the wrong workspace (found live: an invited admin's "remove member"
+        call resolved to their own solo workspace, not the one they were
+        actually trying to manage)."""
         stmt = (
             select(Workspace)
             .join(Membership, Membership.workspace_id == Workspace.id)
             .where(Membership.account_id == account_id, Workspace.deleted_at.is_(None))
+            .order_by(Membership.joined_at)
         )
         result = await self._session.execute(stmt)
         return list(result.scalars().all())
+
+    async def update_name(self, workspace: Workspace, *, name: str) -> Workspace:
+        workspace.name = name
+        await self._session.flush()
+        return workspace
+
+
+@dataclass(frozen=True)
+class MemberRow:
+    account_id: int
+    email: str
+    full_name: str
+    workspace_role: WorkspaceRole
+    joined_at: datetime
 
 
 class MembershipRepository:
@@ -67,3 +97,33 @@ class MembershipRepository:
         )
         result = await self._session.execute(stmt)
         return len(result.scalars().all())
+
+    async def list_with_accounts(self, workspace_id: int) -> list[MemberRow]:
+        stmt = (
+            select(Membership, Account)
+            .join(Account, Account.id == Membership.account_id)
+            .where(Membership.workspace_id == workspace_id)
+            .order_by(Membership.joined_at)
+        )
+        result = await self._session.execute(stmt)
+        return [
+            MemberRow(
+                account_id=account.id,
+                email=account.email,
+                full_name=account.full_name,
+                workspace_role=membership.workspace_role,
+                joined_at=membership.joined_at,
+            )
+            for membership, account in result.all()
+        ]
+
+    async def update_role(
+        self, membership: Membership, *, role: WorkspaceRole
+    ) -> Membership:
+        membership.workspace_role = role
+        await self._session.flush()
+        return membership
+
+    async def remove(self, membership: Membership) -> None:
+        await self._session.delete(membership)
+        await self._session.flush()

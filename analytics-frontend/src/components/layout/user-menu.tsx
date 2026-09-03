@@ -1,10 +1,11 @@
-import { Link } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { ChevronsUpDown, LogOut, User } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -33,6 +34,7 @@ function initials(fullName: string | undefined, email: string | undefined): stri
 // place for account identity + sign out (Linear/Notion/Vercel-style), more
 // discoverable than a small text dropdown buried in the header.
 export function UserMenu() {
+  const navigate = useNavigate()
   const { data: account, isLoading } = useCurrentAccount()
   const logout = useLogout()
 
@@ -54,9 +56,11 @@ export function UserMenu() {
               <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top" className="w-56">
-              <DropdownMenuLabel>{account?.email}</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{account?.email}</DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuItem render={<Link to="/profile" />}>
+              <DropdownMenuItem onClick={() => void navigate({ to: "/profile" })}>
                 <User />
                 Profile
               </DropdownMenuItem>

@@ -10,6 +10,7 @@ import { realtimeRoute } from "@/routing/routes/realtime.route"
 import { registerRoute } from "@/routing/routes/register.route"
 import { reportsRoute } from "@/routing/routes/reports.route"
 import { rootRoute } from "@/routing/routes/root.route"
+import { settingsRoute } from "@/routing/routes/settings.route"
 
 // Code-based route tree (Part 7 §7.3) rather than the file-based generator —
 // avoids a codegen step in the Vite build and keeps routes inside
@@ -19,7 +20,13 @@ export const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   appRoute.addChildren([
-    appShellRoute.addChildren([dashboardRoute, reportsRoute, realtimeRoute, profileRoute]),
+    appShellRoute.addChildren([
+      dashboardRoute,
+      reportsRoute,
+      realtimeRoute,
+      profileRoute,
+      settingsRoute,
+    ]),
     createPropertyRoute,
     installSnippetRoute,
   ]),

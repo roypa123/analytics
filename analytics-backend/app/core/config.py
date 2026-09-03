@@ -33,6 +33,12 @@ class SecuritySettings(BaseSettings):
     # secret plus (property_id, local_date). Rotate quarterly in production;
     # rotating it changes every visitor hash from that moment on.
     visitor_hash_secret: str
+    # Part 8 §8.8 — how long an invitation link stays acceptable. Phase 1 has
+    # no email delivery (app/services/workspace_service.py): the raw token is
+    # handed back to the inviting admin to copy/share manually, so this is
+    # also the practical window the admin has to actually send it before it
+    # goes stale.
+    invitation_ttl_days: int = 7
 
 
 class IngestionSettings(BaseSettings):

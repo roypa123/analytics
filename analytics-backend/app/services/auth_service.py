@@ -175,16 +175,19 @@ class AuthService:
         access_token = issue_access_token(account.id, session_id, self._settings)
 
         raw_refresh_token = secrets.token_urlsafe(32)
-        # Aware for the AuthResult/cookie (Starlette's set_cookie requires a
-        # UTC-aware datetime for `expires`); naive for the DB write, since
-        # every core.* timestamp column is TIMESTAMP WITHOUT TIME ZONE and
-        # asyncpg refuses to bind an aware value to one.
+        # Every core.* timestamp column is TIMESTAMP WITH TIME ZONE (see
+        # migrations/versions/0001_core_schema.py — every column there is
+        # declared `sa.DateTime(timezone=True)`), so this stays aware all the
+        # way to the DB write; asyncpg round-trips it as aware on read too
+        # (`utils/time.py::utcnow()`). It also works directly as the
+        # AuthResult/cookie value (Starlette's set_cookie requires a
+        # UTC-aware datetime for `expires`).
         expires_at = datetime.now(UTC) + timedelta(days=self._settings.refresh_token_ttl_days)
         await self._refresh_tokens.create(
             account_id=account.id,
             family_id=family_id or uuid.uuid4(),
             raw_token=raw_refresh_token,
-            expires_at=expires_at.replace(tzinfo=None),
+            expires_at=expires_at,
             user_agent=user_agent,
             ip_hash=ip_hash,
         )

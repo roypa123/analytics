@@ -7,4 +7,5 @@ export const STALE_TIME = {
   realtime: 10_000,
   account: 5 * 60_000,
   properties: 5 * 60_000,
+  workspace: 5 * 60_000,
 } as const

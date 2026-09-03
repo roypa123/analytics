@@ -14,16 +14,15 @@ import {
 import { Logo } from "@/components/illustrations/logo"
 import { UserMenu } from "@/components/layout/user-menu"
 
-// Part 7 §7.10 — `layout/app-sidebar.tsx`, built on `ui/sidebar`. Settings is
-// still listed but disabled: that page doesn't exist yet, and a sidebar link
-// to a route that 404s is worse than one that's honestly marked "Soon."
-// Split by `enabled` rather than a shared `to` field: disabled items don't
-// carry a `to` typed against the route tree at all.
+// Part 7 §7.10 — `layout/app-sidebar.tsx`, built on `ui/sidebar`. Split by
+// `enabled` rather than a shared `to` field: a disabled item wouldn't carry
+// a `to` typed against the route tree at all — kept for the next item that
+// needs the "listed but not built yet" treatment.
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, enabled: true, to: "/dashboard" },
   { label: "Reports", icon: BarChart3, enabled: true, to: "/reports" },
   { label: "Realtime", icon: Activity, enabled: true, to: "/realtime" },
-  { label: "Settings", icon: Settings, enabled: false },
+  { label: "Settings", icon: Settings, enabled: true, to: "/settings" },
 ] as const
 
 export function AppSidebar() {

@@ -27,4 +27,21 @@ export const paths = {
   realtime: {
     snapshot: (propertyId: number) => `/properties/${propertyId}/realtime`,
   },
+  workspaces: {
+    // Part 8 §8.2-§8.3, §8.6, §8.8 — mirrors `app/api/v1/workspace.py`'s
+    // `/workspaces/{workspace_id}/...` prefix. Every action takes an
+    // explicit workspace id (`workspace_service.py`'s module docstring
+    // explains why: an implicit "the account's workspace" broke the moment
+    // an account could belong to more than one, which accepting an
+    // invitation makes possible).
+    root: "/workspaces",
+    acceptInvitation: "/workspaces/accept-invitation",
+    detail: (workspaceId: number) => `/workspaces/${workspaceId}`,
+    members: (workspaceId: number) => `/workspaces/${workspaceId}/members`,
+    member: (workspaceId: number, accountId: number) =>
+      `/workspaces/${workspaceId}/members/${accountId}`,
+    invitations: (workspaceId: number) => `/workspaces/${workspaceId}/invitations`,
+    invitation: (workspaceId: number, invitationId: number) =>
+      `/workspaces/${workspaceId}/invitations/${invitationId}`,
+  },
 } as const

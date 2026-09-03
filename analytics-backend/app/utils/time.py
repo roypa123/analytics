@@ -1,8 +1,18 @@
-"""Every `core.*` timestamp column is TIMESTAMP WITHOUT TIME ZONE (Part 3
-§3.1 — no `type_annotation_map` override), so asyncpg rejects tz-aware
-datetimes bound to them. This returns the naive-but-UTC value that convention
-requires, instead of each call site reaching for `datetime.now(UTC)` (aware,
-fails to bind) or the deprecated `datetime.utcnow()`.
+"""Every `core.*` timestamp column is TIMESTAMP WITH TIME ZONE
+(migrations/versions/0001_core_schema.py — every column there is declared
+`sa.DateTime(timezone=True)`, despite `app/models/base.py`'s bare
+`Mapped[datetime]` giving no hint of that from the model alone). asyncpg
+always returns an aware datetime for such a column, so comparing it against
+a freshly-called `datetime.utcnow()` (naive) or a hand-rolled
+`datetime.now(UTC).replace(tzinfo=None)` raises `TypeError: can't compare
+offset-naive and offset-aware datetimes` the moment two of them meet — this
+was live-reproduced via `WorkspaceService.accept_invitation`'s expiry check,
+after this function used to strip tzinfo here. Returns the real aware value
+instead, so every `core.*` read/write/comparison uses the same shape.
+
+`analytics.*` (Part 3 §3.1) is the opposite convention — deliberately naive,
+partitioned wall-clock timestamps (Part 1 §1.10) — and is unaffected: nothing
+in that schema calls this helper.
 """
 
 from dataclasses import dataclass
@@ -11,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 
 def utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True)

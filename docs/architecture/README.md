@@ -73,6 +73,7 @@ Decisions that are expensive to reverse. Each is argued where it is made.
 | D-24 | Framer Motion for animation; generated inline SVG/CSS illustration, no external image assets | Part 7 §7.17 |
 | D-25 | Individual/Organisation tabs on signup (org name asked only on Organisation) and login (org name validated against the account's memberships only on Organisation) | Part 8 §8.8 |
 | D-26 | Ship realtime/reports/dashboard as a Phase 1 pragmatic MVP (synchronous inserts, no rollups, raw-event reads) before building D-06/D-09/D-10's full infrastructure | Part 5 §5.1 |
+| D-27 | Workspace-scoped settings endpoints (`/workspaces/{id}/...`) take an explicit `workspace_id` rather than resolving "the account's workspace" implicitly, unlike `PropertyService`'s one-workspace-per-account MVP shortcut | `app/services/workspace_service.py` module docstring |
 
 ## Project-directed constraints
 
@@ -125,6 +126,25 @@ Concrete work items surfaced by the audit and the design.
 | A-13 | Confirm whether non-INR international customers are in scope | 12 §12.13 |
 | A-14 | Build the first `agg_daily_*` rollup once a raw-event range scan is measurably slow (D-10's promotion trigger) | 5 §5.11 |
 | A-15 | Supply a MaxMind `.mmdb` file and set `ANALYTICS__GEOIP_COUNTRY_DB_PATH`; `lookup_country` returns `None` until then | 5 §5.1 |
+| A-16 | Send invitation emails once there's an email provider; `POST /workspaces/{id}/invitations` currently returns the raw token to the inviting admin to share manually | 8 §8.8 |
+| A-17 | Build the register-via-invitation flow (an invited person with no account yet) — `accept_invitation` today requires the invited email to already have an account | 8 §8.8 |
+| A-18 | Build `core/permissions.py` and `AuthContext` (Part 8 §8.7); `workspace_service.py` and `property_service.py` both do direct role checks in the meantime | 8 §8.7 |
+
+**Fixed while building Settings, not just found:** every `core.*` ORM model
+declared `Mapped[datetime]` with no explicit column type, so SQLAlchemy
+assumed a non-tz `DateTime` for generated SQL regardless of the live
+schema — which is genuinely `TIMESTAMP WITH TIME ZONE` everywhere in `core.*`
+(confirmed against the live database, not just the migration file). That
+mismatch was latent until this session's invitation-expiry code became the
+first place to compare a value freshly read back from such a column against
+`utils/time.py::utcnow()`, which raised `TypeError: can't compare
+offset-naive and offset-aware datetimes`. Fixed at the root with a
+`type_annotation_map` on `Base` (`app/models/base.py`) mapping `datetime` to
+`DateTime(timezone=True)` for every `core.*` model at once, `utcnow()` now
+returning the real aware value, and the now-unneeded `.replace(tzinfo=None)`
+removed from `auth_service.py`. This also fixes a pre-existing, never-yet-hit
+bug in `AuthService.refresh()`'s token-expiry check — not something this
+session's code introduced, just the first place live testing exercised it.
 
 ---
 
