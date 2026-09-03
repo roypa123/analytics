@@ -25,3 +25,12 @@ export interface AccountSummary {
   fullName: string
   emailVerified: boolean
 }
+
+export interface UpdateProfileRequest {
+  fullName: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}

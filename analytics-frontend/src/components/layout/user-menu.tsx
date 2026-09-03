@@ -1,4 +1,5 @@
-import { ChevronsUpDown, LogOut } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { ChevronsUpDown, LogOut, User } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -54,6 +55,11 @@ export function UserMenu() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top" className="w-56">
               <DropdownMenuLabel>{account?.email}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem render={<Link to="/profile" />}>
+                <User />
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => logout.mutate()} disabled={logout.isPending}>
                 <LogOut />

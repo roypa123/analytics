@@ -40,3 +40,12 @@ class AccountSummary(CamelModel):
     email: str
     full_name: str
     email_verified: bool
+
+
+class UpdateProfileRequest(CamelModel):
+    full_name: str = Field(min_length=1, max_length=200)
+
+
+class ChangePasswordRequest(CamelModel):
+    current_password: str
+    new_password: str = Field(min_length=12)

@@ -1,6 +1,13 @@
 import { client } from "@/api/client"
 import { paths } from "@/endpoints/paths"
-import type { AccessTokenResponse, AccountSummary, LoginRequest, RegisterRequest } from "@/types/api/auth"
+import type {
+  AccessTokenResponse,
+  AccountSummary,
+  ChangePasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  UpdateProfileRequest,
+} from "@/types/api/auth"
 
 // Part 7 §7.6 — plain async functions, no React, no caching. Consumed by
 // hooks/mutations (React) but also directly by context/providers/auth-provider.tsx
@@ -32,4 +39,13 @@ export async function logout(): Promise<void> {
 export async function getCurrentAccount(): Promise<AccountSummary> {
   const res = await client.get<Envelope<AccountSummary>>(paths.auth.me)
   return res.data.data
+}
+
+export async function updateProfile(body: UpdateProfileRequest): Promise<AccountSummary> {
+  const res = await client.patch<Envelope<AccountSummary>>(paths.auth.me, body)
+  return res.data.data
+}
+
+export async function changePassword(body: ChangePasswordRequest): Promise<void> {
+  await client.post(paths.auth.changePassword, body)
 }

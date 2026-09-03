@@ -54,3 +54,16 @@ class RefreshTokenRepository:
         result = await self._session.execute(stmt)
         for token in result.scalars().all():
             token.revoked_at = utcnow()
+
+    async def revoke_all_for_account(self, account_id: int) -> None:
+        """Called on password change (Part 8 §8.4's threat model: a changed
+        password should invalidate every other device's session, not just
+        this one). The access token already in a browser tab still works
+        until its own short TTL expires (D-20) — only the ability to mint a
+        new one via refresh is cut off."""
+        stmt = select(RefreshToken).where(
+            RefreshToken.account_id == account_id, RefreshToken.revoked_at.is_(None)
+        )
+        result = await self._session.execute(stmt)
+        for token in result.scalars().all():
+            token.revoked_at = utcnow()

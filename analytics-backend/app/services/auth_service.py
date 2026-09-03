@@ -144,6 +144,25 @@ class AuthService:
                 account, user_agent=user_agent, ip_hash=ip_hash, family_id=token.family_id
             )
 
+    async def update_profile(self, account: Account, *, full_name: str) -> Account:
+        async with self._session.begin():
+            account.full_name = full_name
+            await self._session.flush()
+            return account
+
+    async def change_password(
+        self, account: Account, *, current_password: str, new_password: str
+    ) -> None:
+        async with self._session.begin():
+            if account.password_hash is None or not verify_password(
+                current_password, account.password_hash
+            ):
+                raise AuthenticationError(
+                    "Current password is incorrect.", code="incorrect_password"
+                )
+            account.password_hash = hash_password(new_password)
+            await self._refresh_tokens.revoke_all_for_account(account.id)
+
     async def _issue_session(
         self,
         account: Account,

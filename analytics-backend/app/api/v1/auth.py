@@ -10,7 +10,14 @@ from app.api.deps import get_current_account, get_write_session, hash_ip
 from app.core.config import Settings, get_settings
 from app.core.exceptions import AuthenticationError
 from app.models.core.account import Account
-from app.schemas.auth import AccessTokenResponse, AccountSummary, LoginRequest, RegisterRequest
+from app.schemas.auth import (
+    AccessTokenResponse,
+    AccountSummary,
+    ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    UpdateProfileRequest,
+)
 from app.schemas.common import Envelope
 from app.services.auth_service import AuthResult, AuthService
 
@@ -127,3 +134,28 @@ async def logout(response: Response) -> None:
 @router.get("/me", response_model=Envelope[AccountSummary])
 async def me(account: Account = Depends(get_current_account)) -> Envelope[AccountSummary]:
     return Envelope(data=_account_summary(account))
+
+
+@router.patch("/me", response_model=Envelope[AccountSummary])
+async def update_profile(
+    body: UpdateProfileRequest,
+    account: Account = Depends(get_current_account),
+    session: AsyncSession = Depends(get_write_session),
+    settings: Settings = Depends(get_settings),
+) -> Envelope[AccountSummary]:
+    service = AuthService(session, settings.security)
+    updated = await service.update_profile(account, full_name=body.full_name)
+    return Envelope(data=_account_summary(updated))
+
+
+@router.post("/me/password", status_code=204)
+async def change_password(
+    body: ChangePasswordRequest,
+    account: Account = Depends(get_current_account),
+    session: AsyncSession = Depends(get_write_session),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    service = AuthService(session, settings.security)
+    await service.change_password(
+        account, current_password=body.current_password, new_password=body.new_password
+    )

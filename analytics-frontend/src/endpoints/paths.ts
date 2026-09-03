@@ -9,6 +9,7 @@ export const paths = {
     refresh: "/auth/refresh",
     logout: "/auth/logout",
     me: "/auth/me",
+    changePassword: "/auth/me/password",
   },
   properties: {
     root: "/properties",
