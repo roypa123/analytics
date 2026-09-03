@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router"
 import { motion } from "framer-motion"
 import { Globe, Plus, UsersRound } from "lucide-react"
 import { useState } from "react"
@@ -19,6 +18,15 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -38,7 +46,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { TrackingSnippetBlock } from "@/components/analytics/tracking-snippet-block"
 import { useAcceptInvitation } from "@/hooks/mutations/use-accept-invitation"
+import { useCreateProperty } from "@/hooks/mutations/use-create-property"
 import { useDeleteProperty } from "@/hooks/mutations/use-delete-property"
 import { useInviteMember } from "@/hooks/mutations/use-invite-member"
 import { useRemoveMember } from "@/hooks/mutations/use-remove-member"
@@ -51,7 +61,7 @@ import { useWorkspaceInvitations } from "@/hooks/queries/use-workspace-invitatio
 import { useWorkspaceMembers } from "@/hooks/queries/use-workspace-members"
 import { useWorkspaces } from "@/hooks/queries/use-workspaces"
 import { fadeUp, staggerContainer } from "@/lib/motion"
-import type { PropertySummary } from "@/types/api/property"
+import type { CreatePropertyRequest, PropertySummary } from "@/types/api/property"
 import type { WorkspaceRole, WorkspaceSummary } from "@/types/api/workspace"
 import { EMAIL_PATTERN } from "@/utils/validation"
 
@@ -74,28 +84,152 @@ function PropertyRow({ property, isDeleting, onConfirmDelete }: PropertyRowProps
         <span className="font-medium">{property.name}</span>
         <span className="text-xs text-muted-foreground">{property.domain}</span>
       </div>
-      <AlertDialog>
-        <AlertDialogTrigger render={<Button variant="ghost" size="sm" />}>
-          Delete
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {property.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tracking stops immediately and the property disappears from your
-              dashboard and reports. Data already collected is kept, but this
-              can't be undone from the UI.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={onConfirmDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting…" : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <div className="flex items-center gap-1">
+        <Dialog>
+          <DialogTrigger render={<Button variant="ghost" size="sm" />}>Snippet</DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Tracking snippet</DialogTitle>
+              <DialogDescription>
+                Add this to every page of {property.domain}, just before the closing head tag.
+              </DialogDescription>
+            </DialogHeader>
+            <TrackingSnippetBlock trackingId={property.trackingId} />
+          </DialogContent>
+        </Dialog>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="ghost" size="sm" />}>
+            Delete
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {property.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tracking stops immediately and the property disappears from your
+                dashboard and reports. Data already collected is kept, but this
+                can't be undone from the UI.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={onConfirmDelete} disabled={isDeleting}>
+                {isDeleting ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </li>
+  )
+}
+
+interface AddPropertyFormValues {
+  name: string
+  domain: string
+}
+
+// Adding a 2nd/3rd/... property used to route through the full-screen
+// "Create your first property" onboarding wizard (only ever meant to run
+// once, right after signup) and then strand the user on the install-snippet
+// page with no way back — from Settings it read as if only one property
+// could ever be added. This dialog does the same create call inline, shows
+// the new snippet immediately, and never leaves the page.
+function AddPropertyDialog() {
+  const [open, setOpen] = useState(false)
+  const [created, setCreated] = useState<PropertySummary | null>(null)
+  const createProperty = useCreateProperty()
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<AddPropertyFormValues>()
+
+  const onSubmit = handleSubmit((values: CreatePropertyRequest) => {
+    createProperty.mutate(values, { onSuccess: (property) => setCreated(property) })
+  })
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (!next) {
+      // Deferred so the dialog doesn't visibly flash back to the empty form
+      // while it's still closing.
+      setTimeout(() => {
+        setCreated(null)
+        reset()
+        createProperty.reset()
+      }, 150)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger render={<Button size="sm" />}>
+        <Plus className="size-4" />
+        New property
+      </DialogTrigger>
+      <DialogContent>
+        {created ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>{created.name} is ready</DialogTitle>
+              <DialogDescription>
+                Add this snippet to every page of {created.domain} to start tracking it.
+              </DialogDescription>
+            </DialogHeader>
+            <TrackingSnippetBlock trackingId={created.trackingId} />
+            <DialogFooter>
+              <Button onClick={() => onOpenChange(false)}>Done</Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>New property</DialogTitle>
+              <DialogDescription>A property is one tracked website.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="propertyName">Property name</Label>
+                <Input
+                  id="propertyName"
+                  autoComplete="off"
+                  placeholder="My Website"
+                  {...register("name", {
+                    required: "Property name is required",
+                    maxLength: { value: 200, message: "Must be 200 characters or fewer" },
+                  })}
+                />
+                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="propertyDomain">Domain</Label>
+                <Input
+                  id="propertyDomain"
+                  autoComplete="off"
+                  placeholder="example.com"
+                  {...register("domain", {
+                    required: "Domain is required",
+                    maxLength: { value: 255, message: "Must be 255 characters or fewer" },
+                  })}
+                />
+                {errors.domain && (
+                  <p className="text-sm text-destructive">{errors.domain.message}</p>
+                )}
+              </div>
+              {isApiError(createProperty.error) && (
+                <p className="text-sm text-destructive">Something went wrong. Please try again.</p>
+              )}
+              <DialogFooter>
+                <Button type="submit" disabled={createProperty.isPending}>
+                  {createProperty.isPending ? "Creating…" : "Create property"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -115,10 +249,7 @@ function PropertiesCard() {
           <CardTitle className="text-base">Properties</CardTitle>
           <CardDescription>Websites tracked in this workspace.</CardDescription>
         </div>
-        <Button size="sm" render={<Link to="/onboarding/property" />}>
-          <Plus className="size-4" />
-          New property
-        </Button>
+        <AddPropertyDialog />
       </CardHeader>
       <CardContent>
         {isLoading ? (

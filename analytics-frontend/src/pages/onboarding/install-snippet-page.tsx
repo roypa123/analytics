@@ -1,26 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { motion } from "framer-motion"
-import { Check, Copy } from "lucide-react"
-import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Logo } from "@/components/illustrations/logo"
-import { env } from "@/config/env"
+import { TrackingSnippetBlock } from "@/components/analytics/tracking-snippet-block"
 import { useProperties } from "@/hooks/queries/use-properties"
 import { fadeUp } from "@/lib/motion"
 import { installSnippetRoute } from "@/routing/routes/onboarding/install-snippet.route"
-
-// There is no real CDN yet (Part 2 §2.3) — the collector deployable serves
-// this file itself at `GET /tracker.js` (app/collector/main.py), so this
-// snippet is genuinely functional, not a placeholder. `data-collector-url`
-// is set explicitly to VITE_COLLECTOR_URL (config/env.ts) rather than
-// relying on the script's own localhost default, so the same generated
-// snippet keeps working once the collector's URL differs per environment.
-function buildSnippet(trackingId: string): string {
-  return `<script defer src="${env.collectorUrl}/tracker.js" data-tracking-id="${trackingId}" data-collector-url="${env.collectorUrl}"></script>`
-}
 
 // Part 8 §8.8 — the last onboarding step: "create first property → tracking
 // snippet → install verification." Verification (waiting for the first real
@@ -32,18 +20,10 @@ export function InstallSnippetPage() {
   const navigate = useNavigate()
   const search = installSnippetRoute.useSearch()
   const { data: properties, isLoading } = useProperties()
-  const [copied, setCopied] = useState(false)
 
   const property = search.trackingId
     ? properties?.find((p) => p.trackingId === search.trackingId)
     : properties?.[0]
-
-  const onCopy = async () => {
-    if (!property) return
-    await navigator.clipboard.writeText(buildSnippet(property.trackingId))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-16">
@@ -64,26 +44,7 @@ export function InstallSnippetPage() {
             {isLoading ? (
               <Skeleton className="h-16 w-full" />
             ) : property ? (
-              <>
-                <div className="relative">
-                  <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs">
-                    <code>{buildSnippet(property.trackingId)}</code>
-                  </pre>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    className="absolute right-2 top-2"
-                    onClick={onCopy}
-                    aria-label="Copy snippet"
-                  >
-                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Tracking ID: <code className="text-foreground">{property.trackingId}</code>
-                </p>
-              </>
+              <TrackingSnippetBlock trackingId={property.trackingId} />
             ) : (
               <p className="text-sm text-destructive">
                 No property found.{" "}

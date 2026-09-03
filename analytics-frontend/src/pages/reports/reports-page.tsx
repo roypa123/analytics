@@ -30,8 +30,8 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-state"
-import { useProperties } from "@/hooks/queries/use-properties"
 import { useReportBreakdown } from "@/hooks/queries/use-report-breakdown"
+import { useSelectedProperty } from "@/hooks/use-selected-property"
 import { fadeUp, staggerContainer } from "@/lib/motion"
 import { reportsRoute } from "@/routing/routes/reports.route"
 import type { ReportDimension } from "@/routing/search-validators"
@@ -175,8 +175,7 @@ function ReportBreakdownTable({ propertyId, tab }: ReportBreakdownTableProps) {
 export function ReportsPage() {
   const navigate = useNavigate()
   const search = reportsRoute.useSearch()
-  const { data: properties, isLoading: isLoadingProperties } = useProperties()
-  const property = properties?.[0]
+  const { property, isLoading: isLoadingProperties } = useSelectedProperty()
 
   return (
     <motion.div

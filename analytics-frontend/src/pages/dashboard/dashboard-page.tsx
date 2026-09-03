@@ -37,9 +37,9 @@ import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-s
 import { RealtimeCounter } from "@/components/analytics/realtime/realtime-counter"
 import { useDashboardSummary } from "@/hooks/queries/use-dashboard-summary"
 import { useDashboardTrend } from "@/hooks/queries/use-dashboard-trend"
-import { useProperties } from "@/hooks/queries/use-properties"
 import { useRealtimeSnapshot } from "@/hooks/queries/use-realtime-snapshot"
 import { useReportBreakdown } from "@/hooks/queries/use-report-breakdown"
+import { useSelectedProperty } from "@/hooks/use-selected-property"
 import { cardTap, cardVariants, fadeUp, iconPop, staggerContainer } from "@/lib/motion"
 import type { ReportDimension } from "@/routing/search-validators"
 import type { DashboardSummary } from "@/types/api/dashboard"
@@ -211,8 +211,7 @@ function TopBreakdownList({
 // only when the property genuinely has no events yet, never a fabricated
 // chart or number.
 export function DashboardPage() {
-  const { data: properties, isLoading: isLoadingProperties } = useProperties()
-  const property = properties?.[0]
+  const { property, isLoading: isLoadingProperties } = useSelectedProperty()
   const { data: summary, isLoading: isLoadingSummary } = useDashboardSummary(property?.id)
   const { data: realtime } = useRealtimeSnapshot(property?.id)
   const values = metricValues(summary)

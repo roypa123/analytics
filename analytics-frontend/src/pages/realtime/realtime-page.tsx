@@ -6,8 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-state"
 import { RealtimeCounter } from "@/components/analytics/realtime/realtime-counter"
 import { RealtimePageList } from "@/components/analytics/realtime/realtime-page-list"
-import { useProperties } from "@/hooks/queries/use-properties"
 import { useRealtimeSnapshot } from "@/hooks/queries/use-realtime-snapshot"
+import { useSelectedProperty } from "@/hooks/use-selected-property"
 import { fadeUp, staggerContainer } from "@/lib/motion"
 
 // `realtime-map.tsx` pulls in `dotted-map` (which needs `proj4` at runtime)
@@ -24,9 +24,8 @@ const RealtimeMap = lazy(() =>
 // already uses. This page used to predate that endpoint and rendered the
 // layout fed a hardcoded 0/empty everywhere — now it shows the real numbers.
 export function RealtimePage() {
-  const { data: properties, isLoading: isLoadingProperties } = useProperties()
-  const hasProperty = (properties?.length ?? 0) > 0
-  const property = properties?.[0]
+  const { property, isLoading: isLoadingProperties } = useSelectedProperty()
+  const hasProperty = property !== undefined
   const { data: snapshot, isLoading: isLoadingSnapshot } = useRealtimeSnapshot(property?.id)
 
   return (
