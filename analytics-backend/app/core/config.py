@@ -26,6 +26,13 @@ class SecuritySettings(BaseSettings):
     jwt_public_key: str
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
+    # Part 2 §2.9, D-08 — the master secret the daily visitor-hash salt is
+    # derived from via HKDF. Stateless by design: losing Redis (or, in this
+    # Phase 1 build, not having a salt cache at all) does not change identity
+    # hashes, because the salt is recomputed the same way every time from this
+    # secret plus (property_id, local_date). Rotate quarterly in production;
+    # rotating it changes every visitor hash from that moment on.
+    visitor_hash_secret: str
 
 
 class IngestionSettings(BaseSettings):
@@ -37,6 +44,12 @@ class IngestionSettings(BaseSettings):
 class AnalyticsSettings(BaseSettings):
     raw_event_retention_days: int = 90
     raw_query_range_cap_days: int = 7
+    # Part 1 §1.5 "Geo context" / Part 5 §5.7 — path to a MaxMind-format
+    # (GeoLite2-Country.mmdb or commercial equivalent) database, memory-mapped
+    # at first use. Optional: unset in Phase 1 means every event's geo columns
+    # are simply NULL rather than the collector failing. Ops must supply a real
+    # database file before country/region breakdowns carry any data.
+    geoip_country_db_path: str | None = None
 
 
 class ObservabilitySettings(BaseSettings):

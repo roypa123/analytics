@@ -46,3 +46,14 @@ class PropertyService:
     async def list_for_account(self, account_id: int) -> list[Property]:
         workspace_id = await self._resolve_workspace_id(account_id)
         return await self._properties.list_for_workspace(workspace_id)
+
+    async def get_owned(self, *, account_id: int, property_id: int) -> Property:
+        """Analytics endpoints' authorization check (Part 4 §4.14). Same MVP
+        simplification as the rest of this service: trusts workspace
+        membership rather than Part 8 §8.7's per-property `property_access`
+        rows, which don't have an enforcement layer yet."""
+        workspace_id = await self._resolve_workspace_id(account_id)
+        prop = await self._properties.get_by_id(property_id)
+        if prop is None or prop.workspace_id != workspace_id:
+            raise NotFoundError("Property not found.", code="property_not_found")
+        return prop

@@ -11,9 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.database import get_database
 from app.core.exceptions import AuthenticationError
+from app.core.redis import get_redis
 from app.core.security import decode_access_token
 from app.models.core.account import Account
+from app.models.core.property import Property
 from app.repositories.account_repo import AccountRepository
+from app.repositories.realtime_repo import RealtimeRepository
+from app.services.property_service import PropertyService
 
 
 def get_app_settings() -> Settings:
@@ -71,3 +75,17 @@ async def get_current_account(
     # already begun on this Session."
     await session.commit()
     return account
+
+
+async def get_owned_property(
+    property_id: int,
+    account: Account = Depends(get_current_account),
+    session: AsyncSession = Depends(get_read_session),
+) -> Property:
+    """Part 4 §4.14 — every `/properties/{property_id}/...` analytics route
+    depends on this instead of re-checking ownership itself."""
+    return await PropertyService(session).get_owned(account_id=account.id, property_id=property_id)
+
+
+def get_realtime_repo(settings: Settings = Depends(get_app_settings)) -> RealtimeRepository:
+    return RealtimeRepository(get_redis(settings))

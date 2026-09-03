@@ -1,4 +1,4 @@
-import DottedMap from "dotted-map/without-countries"
+import DottedMapImport from "dotted-map/without-countries"
 import { useMemo } from "react"
 
 import {
@@ -25,6 +25,19 @@ interface RealtimeMapProps {
 // already did the expensive part (testing every candidate dot against every
 // country's polygon); this just replays the precomputed result.
 //
+// `dotted-map`'s UMD build double-wraps its ESM interop marker
+// (`{ __esModule: true, default: <ctor> }`). Rollup (`vite build`) unwraps
+// that extra layer automatically, but Vite dev's esbuild deps-prebundler
+// does not — there, this default import resolves to the wrapper object
+// itself, not the class, and `new DottedMap(...)` throws
+// "DottedMap is not a constructor" the moment this module loads. Unwrap
+// defensively so both environments get the real constructor.
+const DottedMap = (
+  DottedMapImport && typeof DottedMapImport === "object" && "default" in DottedMapImport
+    ? (DottedMapImport as { default: typeof DottedMapImport }).default
+    : DottedMapImport
+) as typeof DottedMapImport
+
 // The double cast is because `dotted-map`'s own `.d.ts` declares `points` as
 // `Point[]`, but the JSON it actually serializes (and what the constructor
 // actually reads at runtime) is a `Record<string, Point>` keyed by

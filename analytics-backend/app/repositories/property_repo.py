@@ -35,6 +35,17 @@ class PropertyRepository:
             return None
         return prop
 
+    async def get_by_tracking_id(self, tracking_id: str) -> Property | None:
+        """The collector's hot-path lookup (Part 2 §2.4 step 2). Phase 1 does
+        this as a per-event query; the documented in-process LRU cache with a
+        Redis pub/sub invalidation channel is Phase 2 (this is not yet a
+        volume the extra cache layer pays for)."""
+        stmt = select(Property).where(
+            Property.tracking_id == tracking_id, Property.deleted_at.is_(None)
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def list_for_workspace(self, workspace_id: int) -> list[Property]:
         stmt = select(Property).where(
             Property.workspace_id == workspace_id, Property.deleted_at.is_(None)
