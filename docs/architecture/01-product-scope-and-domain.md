@@ -179,7 +179,11 @@ is 1. A team customer is the same workspace with more members and explicit
 property grants. There is no separate "personal account" entity, and the
 upgrade from solo to team is *inviting someone* — not a migration. Part 8 §8.1
 (D-19) explains why the alternative is a trap, and Part 12 §12.1 shows where
-the commercial distinction actually lives (seat quantity, nothing else).
+the commercial distinction actually lives (seat quantity, nothing else). Part 8
+§8.1's revision note adds one caveat: `core.workspaces.is_organisation` records
+the D-25 signup-tab choice so the Members/Invite UI is reachable from a
+brand-new Organisation-tab workspace before it has a second member — a UI
+gate only, not a second data model or authorization path.
 
 ### Entity definitions
 

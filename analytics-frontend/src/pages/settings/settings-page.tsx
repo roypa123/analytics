@@ -1,7 +1,7 @@
 import { motion } from "framer-motion"
 import { Globe, Plus, UsersRound } from "lucide-react"
 import { useState } from "react"
-import { Controller, useForm } from "react-hook-form"
+import { Controller, useForm, useWatch } from "react-hook-form"
 
 import { isApiError } from "@/api/errors"
 import {
@@ -47,6 +47,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { TrackingSnippetBlock } from "@/components/analytics/tracking-snippet-block"
+import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher"
 import { useAcceptInvitation } from "@/hooks/mutations/use-accept-invitation"
 import { useCreateProperty } from "@/hooks/mutations/use-create-property"
 import { useDeleteProperty } from "@/hooks/mutations/use-delete-property"
@@ -59,10 +60,10 @@ import { useCurrentAccount } from "@/hooks/queries/use-current-account"
 import { useProperties } from "@/hooks/queries/use-properties"
 import { useWorkspaceInvitations } from "@/hooks/queries/use-workspace-invitations"
 import { useWorkspaceMembers } from "@/hooks/queries/use-workspace-members"
-import { useWorkspaces } from "@/hooks/queries/use-workspaces"
+import { useSelectedWorkspace } from "@/hooks/use-selected-workspace"
 import { fadeUp, staggerContainer } from "@/lib/motion"
 import type { CreatePropertyRequest, PropertySummary } from "@/types/api/property"
-import type { WorkspaceRole, WorkspaceSummary } from "@/types/api/workspace"
+import type { PropertyRole, WorkspaceRole, WorkspaceSummary } from "@/types/api/workspace"
 import { EMAIL_PATTERN } from "@/utils/validation"
 
 const ROLE_LABELS: Record<WorkspaceRole, string> = {
@@ -391,66 +392,113 @@ function MembersCard({ workspaceId, myRole, myAccountId }: MembersCardProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => (
-                <TableRow key={member.accountId}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">
-                        {member.fullName}
-                        {member.accountId === myAccountId && (
-                          <span className="font-normal text-muted-foreground"> (you)</span>
-                        )}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{member.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {isOwner ? (
-                      <Select
-                        value={member.workspaceRole}
-                        onValueChange={(value) =>
-                          updateRole.mutate({
-                            accountId: member.accountId,
-                            body: { workspaceRole: value as WorkspaceRole },
-                          })
-                        }
-                      >
-                        <SelectTrigger size="sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="owner">Owner</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant="outline">{ROLE_LABELS[member.workspaceRole]}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(member.joinedAt).toLocaleDateString()}
-                  </TableCell>
-                  {canManage && (
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMember.mutate(member.accountId)}
-                        disabled={removeMember.isPending}
-                      >
-                        Remove
-                      </Button>
+              {members.map((member) => {
+                // Part 8 §8.6 (revised): an admin manages roles the same as
+                // an owner for the ordinary member/admin case — the one
+                // reserved move is anything touching the "owner" role, which
+                // only the owner can grant or take away. So an admin gets an
+                // editable select on every row except the current owner's,
+                // and never sees "Owner" as an option to pick.
+                const canEditRole = canManage && (isOwner || member.workspaceRole !== "owner")
+                return (
+                  <TableRow key={member.accountId}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {member.fullName}
+                          {member.accountId === myAccountId && (
+                            <span className="font-normal text-muted-foreground"> (you)</span>
+                          )}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{member.email}</span>
+                      </div>
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell>
+                      {canEditRole ? (
+                        <Select
+                          value={member.workspaceRole}
+                          onValueChange={(value) =>
+                            updateRole.mutate({
+                              accountId: member.accountId,
+                              body: { workspaceRole: value as WorkspaceRole },
+                            })
+                          }
+                        >
+                          <SelectTrigger size="sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isOwner && <SelectItem value="owner">Owner</SelectItem>}
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="member">Member</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline">{ROLE_LABELS[member.workspaceRole]}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(member.joinedAt).toLocaleDateString()}
+                    </TableCell>
+                    {canManage && (
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeMember.mutate(member.accountId)}
+                          disabled={removeMember.isPending}
+                        >
+                          Remove
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         )}
         {errorMessage && <p className="mt-3 text-sm text-destructive">{errorMessage}</p>}
       </CardContent>
     </Card>
+  )
+}
+
+interface TeamSectionProps {
+  workspaceId: number
+  isOrganisation: boolean
+  myRole: WorkspaceRole
+  myAccountId: number | undefined
+}
+
+// Part 8 §8.1 (D-19, revised): "B2C / solo ... No teammates, no invitations,
+// no permission UI" for an Individual-tab signup — Members/Invite/Pending-
+// invitations are hidden entirely rather than shown with nothing to manage.
+// An Organisation-tab signup shows them immediately (still gated by role, as
+// before), since that's the whole point of picking that tab. Gated on the
+// signup-time `isOrganisation` flag (D-25's tab choice), not live seat count:
+// gating on seat count alone made the very first invite unreachable for
+// every workspace, individual or organisation, since a brand-new org has
+// exactly one member too.
+function TeamSection({ workspaceId, isOrganisation, myRole, myAccountId }: TeamSectionProps) {
+  const canManage = myRole === "owner" || myRole === "admin"
+
+  if (!isOrganisation) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <MembersCard workspaceId={workspaceId} myRole={myRole} myAccountId={myAccountId} />
+      {canManage && (
+        <>
+          <div className="max-w-2xl">
+            <InviteCard workspaceId={workspaceId} isOwner={myRole === "owner"} />
+          </div>
+          <PendingInvitationsCard workspaceId={workspaceId} />
+        </>
+      )}
+    </div>
   )
 }
 
@@ -464,13 +512,24 @@ interface InviteCardProps {
   isOwner: boolean
 }
 
+const PROPERTY_ROLE_LABELS: Record<PropertyRole, string> = {
+  admin: "Admin",
+  analyst: "Analyst",
+  viewer: "Viewer",
+}
+
 // Part 5-style Phase 1 deviation (no email delivery yet): a successful
 // invite reveals its raw token exactly once, right here, for the admin to
 // copy and share manually — mirrors `CreatedInvitation`'s wire contract.
 function InviteCard({ workspaceId, isOwner }: InviteCardProps) {
   const invite = useInviteMember(workspaceId)
+  const { data: properties } = useProperties()
   const [createdToken, setCreatedToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // Only meaningful for a "member" invite (rule 1, Part 8 §8.6: an
+  // owner/admin invitee already sees every property) — keyed by property id,
+  // a missing entry means "no access to this one."
+  const [propertyRoles, setPropertyRoles] = useState<Record<number, PropertyRole>>({})
   const {
     register,
     handleSubmit,
@@ -478,15 +537,24 @@ function InviteCard({ workspaceId, isOwner }: InviteCardProps) {
     reset,
     formState: { errors },
   } = useForm<InviteFormValues>({ defaultValues: { workspaceRole: "member" } })
+  const workspaceRole = useWatch({ control, name: "workspaceRole" })
 
   const onSubmit = handleSubmit((values) => {
-    invite.mutate(values, {
-      onSuccess: (created) => {
-        setCreatedToken(created.inviteToken)
-        setCopied(false)
-        reset({ email: "", workspaceRole: "member" })
-      },
-    })
+    const propertyGrants = Object.entries(propertyRoles).map(([propertyId, propertyRole]) => ({
+      propertyId: Number(propertyId),
+      propertyRole,
+    }))
+    invite.mutate(
+      { ...values, propertyGrants },
+      {
+        onSuccess: (created) => {
+          setCreatedToken(created.inviteToken)
+          setCopied(false)
+          setPropertyRoles({})
+          reset({ email: "", workspaceRole: "member" })
+        },
+      }
+    )
   })
 
   const copyToken = () => {
@@ -542,6 +610,49 @@ function InviteCard({ workspaceId, isOwner }: InviteCardProps) {
             {invite.isPending ? "Sending…" : "Send invite"}
           </Button>
         </form>
+
+        {workspaceRole === "member" && (properties?.length ?? 0) > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg border p-3">
+            <p className="text-sm font-medium">Property access</p>
+            <p className="text-xs text-muted-foreground">
+              A member only sees the properties granted here — pick a role for each one
+              they should access, and leave the rest set to "No access."
+            </p>
+            <ul className="flex flex-col gap-2">
+              {properties?.map((property) => (
+                <li key={property.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate">{property.name}</span>
+                  <Select
+                    value={propertyRoles[property.id] ?? "none"}
+                    onValueChange={(value: string | null) =>
+                      setPropertyRoles((current) => {
+                        const next = { ...current }
+                        if (value === "none" || value === null) {
+                          delete next[property.id]
+                        } else {
+                          next[property.id] = value as PropertyRole
+                        }
+                        return next
+                      })
+                    }
+                  >
+                    <SelectTrigger size="sm" className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No access</SelectItem>
+                      {Object.entries(PROPERTY_ROLE_LABELS).map(([role, label]) => (
+                        <SelectItem key={role} value={role}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {isApiError(invite.error) && (
           <p className="text-sm text-destructive">
@@ -680,13 +791,15 @@ function AcceptInvitationCard() {
 }
 
 // Settings: account-level counterpart is `/profile`; this page is
-// workspace-level (Part 8 §8.2-§8.3, §8.6, §8.8). No workspace-switcher UI
-// yet (D-25), so — same simplification `useProperties()` already makes —
-// this operates on the first workspace `GET /workspaces` returns.
+// workspace-level (Part 8 §8.2-§8.3, §8.6, §8.8). An account can belong to
+// more than one workspace (its own, plus any it's been invited into), so
+// which one Settings shows is an explicit selection (`useSelectedWorkspace`,
+// with a `<WorkspaceSwitcher>` once there's more than one) rather than
+// blindly taking `workspaces[0]` — that used to land an invited teammate on
+// their own empty personal workspace instead of the org they were invited to.
 export function SettingsPage() {
   const { data: account } = useCurrentAccount()
-  const { data: workspaces, isLoading } = useWorkspaces()
-  const workspace = workspaces?.[0]
+  const { workspace, isLoading } = useSelectedWorkspace()
 
   return (
     <motion.div
@@ -695,11 +808,17 @@ export function SettingsPage() {
       variants={staggerContainer}
       className="flex flex-col gap-6 p-6"
     >
-      <motion.div variants={fadeUp}>
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your workspace, members, and invitations.
-        </p>
+      <motion.div
+        variants={fadeUp}
+        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <h1 className="text-xl font-semibold">Settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage your workspace, members, and invitations.
+          </p>
+        </div>
+        <WorkspaceSwitcher />
       </motion.div>
 
       {isLoading || !workspace ? (
@@ -718,24 +837,13 @@ export function SettingsPage() {
           </motion.div>
 
           <motion.div variants={fadeUp}>
-            <MembersCard
+            <TeamSection
               workspaceId={workspace.id}
+              isOrganisation={workspace.isOrganisation}
               myRole={workspace.myRole}
               myAccountId={account?.id}
             />
           </motion.div>
-
-          {(workspace.myRole === "owner" || workspace.myRole === "admin") && (
-            <>
-              <motion.div variants={fadeUp} className="max-w-2xl">
-                <InviteCard workspaceId={workspace.id} isOwner={workspace.myRole === "owner"} />
-              </motion.div>
-
-              <motion.div variants={fadeUp}>
-                <PendingInvitationsCard workspaceId={workspace.id} />
-              </motion.div>
-            </>
-          )}
 
           <motion.div variants={fadeUp} className="max-w-xl">
             <AcceptInvitationCard />

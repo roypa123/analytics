@@ -55,6 +55,7 @@ CREATE TABLE core.workspaces (
     name            text NOT NULL,
     slug            citext NOT NULL UNIQUE,
     plan            text NOT NULL DEFAULT 'free',
+    is_organisation boolean NOT NULL DEFAULT false,
     event_quota_monthly  bigint NOT NULL DEFAULT 100000,
     created_at      timestamptz NOT NULL DEFAULT now(),
     deleted_at      timestamptz

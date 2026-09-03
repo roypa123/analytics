@@ -72,7 +72,9 @@ class AuthService:
             # implementation, tracked separately from this endpoint).
             workspace_name = organisation_name or f"{full_name}'s Workspace"
             workspace = await self._workspaces.create(
-                name=workspace_name, slug=slugify(workspace_name)
+                name=workspace_name,
+                slug=slugify(workspace_name),
+                is_organisation=organisation_name is not None,
             )
             await self._memberships.add(
                 workspace_id=workspace.id, account_id=account.id, role="owner"

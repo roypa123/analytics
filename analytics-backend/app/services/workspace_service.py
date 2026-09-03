@@ -50,6 +50,7 @@ from app.schemas.workspace import (
     CreatedInvitation,
     InvitationSummary,
     MemberSummary,
+    PropertyGrant,
     WorkspaceSummary,
 )
 from app.utils.time import utcnow
@@ -85,6 +86,7 @@ class WorkspaceService:
             slug=workspace.slug,
             plan=workspace.plan,
             my_role=membership.workspace_role,
+            is_organisation=workspace.is_organisation,
         )
 
     async def list_workspaces(self, account_id: int) -> list[WorkspaceSummary]:
@@ -132,17 +134,27 @@ class WorkspaceService:
     ) -> MemberSummary:
         async with self._session.begin():
             _, acting_membership = await self._require_membership(workspace_id, account_id)
-            # Part 8 §8.6 matrix: only an owner may change a member's
-            # workspace role — an admin promoting a friend to owner would be
-            # a privilege escalation admins otherwise cannot perform.
-            if acting_membership.workspace_role != "owner":
+            # Part 8 §8.6 matrix (revised): an admin manages the team the same
+            # as an owner does for the ordinary member/admin case — the
+            # narrower, still-enforced restriction is that only an owner may
+            # touch the "owner" role itself (grant it or take it away), since
+            # that specific move is the one that is a privilege escalation an
+            # admin otherwise cannot perform. Everything else an admin can
+            # already do to a member (invite, remove) they can also re-role.
+            if acting_membership.workspace_role not in _ADMIN_ROLES:
                 raise AuthorizationError(
-                    "Only the workspace owner can change a member's role.", code="forbidden"
+                    "Only a workspace owner or admin can change a member's role.", code="forbidden"
                 )
 
             target = await self._memberships.get(workspace_id, target_account_id)
             if target is None:
                 raise NotFoundError("Member not found.", code="member_not_found")
+
+            touches_owner = role == "owner" or target.workspace_role == "owner"
+            if touches_owner and acting_membership.workspace_role != "owner":
+                raise AuthorizationError(
+                    "Only the workspace owner can change an owner's role.", code="forbidden"
+                )
 
             if (
                 target.workspace_role == "owner"
@@ -185,7 +197,13 @@ class WorkspaceService:
             await self._memberships.remove(target)
 
     async def invite_member(
-        self, workspace_id: int, account_id: int, *, email: str, role: WorkspaceRole
+        self,
+        workspace_id: int,
+        account_id: int,
+        *,
+        email: str,
+        role: WorkspaceRole,
+        property_grants: list[PropertyGrant] | None = None,
     ) -> CreatedInvitation:
         async with self._session.begin():
             _, acting_membership = await self._require_membership(workspace_id, account_id)
@@ -207,6 +225,14 @@ class WorkspaceService:
                     code="invitation_pending",
                 )
 
+            # Validated here, not just trusted through to acceptance: a typo'd
+            # or cross-workspace property id should fail the invite loudly
+            # rather than silently vanish when `accept_invitation` skips it.
+            for grant in property_grants or []:
+                target_property = await self._properties.get_by_id(grant.property_id)
+                if target_property is None or target_property.workspace_id != workspace_id:
+                    raise NotFoundError("Property not found.", code="property_not_found")
+
             expires_at = utcnow() + timedelta(days=self._invitation_ttl_days)
             invitation, raw_token = await self._invitations.create(
                 workspace_id=workspace_id,
@@ -214,6 +240,10 @@ class WorkspaceService:
                 role=role,
                 invited_by=account_id,
                 expires_at=expires_at,
+                property_grants=[
+                    {"property_id": g.property_id, "property_role": g.property_role}
+                    for g in (property_grants or [])
+                ],
             )
             return CreatedInvitation(
                 invitation=InvitationSummary(

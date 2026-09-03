@@ -29,6 +29,32 @@ Sign in on the **Organisation** tab — the organisation name must match
 exactly, or login is rejected with `organisation_mismatch` even though the
 password is correct.
 
+## Organisation admin account
+
+An account invited into the org above with `workspaceRole: admin` (not the
+owner — that's the account above, which is whoever registered with the
+organisation name). Registered directly (no organisation name of its own —
+the "register first, then accept" flow, Part 8 §8.8), then accepted an
+invitation into `Acme Test Org 1788421869`.
+
+| Field | Value |
+| --- | --- |
+| Email | `nexlytics.org.admin.1788421869@example.com` |
+| Password | `TestPass1234!` |
+| Full name | Org Admin Tester |
+| Workspace role | `admin` on `Acme Test Org 1788421869` |
+
+Sign in on either tab: **Individual** (plain email/password — this account's
+own auto-created personal workspace), or **Organisation** with
+`Acme Test Org 1788421869` as the organisation name (matches the workspace
+this account was invited into, not one it owns). `GET /workspaces` lists the
+organisation first regardless (Part 8 §8.1 revision — organisation
+workspaces sort ahead of an account's own personal one), so Settings lands on
+the org by default either way: Members, Invite a teammate, and Pending
+invitations should all be visible, and the role dropdown next to every
+member except the owner should be editable (Part 8 §8.6 revision — an admin
+can re-role member ↔ admin, only owner-role changes stay owner-only).
+
 ## What was verified (2026-09-03)
 
 - `POST /api/v1/auth/register` — Individual tab (no `organisationName`) → `200`, access token returned.

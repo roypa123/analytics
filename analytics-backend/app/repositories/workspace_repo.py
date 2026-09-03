@@ -16,8 +16,10 @@ class WorkspaceRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, *, name: str, slug: str) -> Workspace:
-        workspace = Workspace(name=name, slug=slug, plan="free")
+    async def create(self, *, name: str, slug: str, is_organisation: bool) -> Workspace:
+        workspace = Workspace(
+            name=name, slug=slug, plan="free", is_organisation=is_organisation
+        )
         self._session.add(workspace)
         await self._session.flush()
         return workspace
@@ -26,22 +28,27 @@ class WorkspaceRepository:
         return await self._session.get(Workspace, workspace_id)
 
     async def list_for_account(self, account_id: int) -> list[Workspace]:
-        """Ordered by `joined_at` so "the first one" (D-25's one-workspace-
-        per-account MVP simplification, still relied on by
-        `PropertyService`) is at least deterministic — the account's own,
-        oldest workspace — rather than whatever order the join happens to
-        return. Accepting an invitation (Part 8 §8.8) is the one way an
-        account ends up in more than one today; every workspace-scoped
-        endpoint in `app/api/v1/workspace.py` takes an explicit
-        `workspace_id` precisely so that case doesn't silently operate on
-        the wrong workspace (found live: an invited admin's "remove member"
-        call resolved to their own solo workspace, not the one they were
-        actually trying to manage)."""
+        """Ordered so "the first one" (D-25's one-workspace-per-account MVP
+        simplification, still relied on by `PropertyService` and by the
+        frontend's `useSelectedWorkspace` default) is a sensible pick rather
+        than an arbitrary one. Accepting an invitation (Part 8 §8.8) is the
+        one way an account ends up in more than one workspace today, and it
+        always happens *after* that account's own workspace was created at
+        registration — so a plain `joined_at` order put a teammate's own
+        empty personal workspace first, ahead of the organisation they were
+        actually invited to manage (found live: an invited admin saw no
+        "Invite" button because Settings had silently resolved to their solo
+        workspace, where that really is correct). Ordering `is_organisation`
+        first fixes the default for every implicit "the account's workspace"
+        caller — `PropertyService` included — without needing each one to
+        take an explicit `workspace_id`. Genuinely workspace-scoped actions
+        (member management, `app/api/v1/workspace.py`) still take one
+        explicitly regardless, per the same reasoning found live before."""
         stmt = (
             select(Workspace)
             .join(Membership, Membership.workspace_id == Workspace.id)
             .where(Membership.account_id == account_id, Workspace.deleted_at.is_(None))
-            .order_by(Membership.joined_at)
+            .order_by(Workspace.is_organisation.desc(), Membership.joined_at)
         )
         result = await self._session.execute(stmt)
         return list(result.scalars().all())

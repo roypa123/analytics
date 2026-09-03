@@ -1,6 +1,7 @@
 // Mirrors app/schemas/workspace.py (Part 8 §8.2-§8.3, §8.6, §8.8).
 
 export type WorkspaceRole = "owner" | "admin" | "member"
+export type PropertyRole = "admin" | "analyst" | "viewer"
 
 export interface WorkspaceSummary {
   id: number
@@ -8,6 +9,7 @@ export interface WorkspaceSummary {
   slug: string
   plan: string
   myRole: WorkspaceRole
+  isOrganisation: boolean
 }
 
 export interface UpdateWorkspaceRequest {
@@ -26,9 +28,15 @@ export interface UpdateMemberRoleRequest {
   workspaceRole: WorkspaceRole
 }
 
+export interface PropertyGrant {
+  propertyId: number
+  propertyRole: PropertyRole
+}
+
 export interface InviteMemberRequest {
   email: string
   workspaceRole: WorkspaceRole
+  propertyGrants: PropertyGrant[]
 }
 
 export interface InvitationSummary {

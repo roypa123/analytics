@@ -139,7 +139,11 @@ async def invite_member(
     settings: Settings = Depends(get_app_settings),
 ) -> Envelope[CreatedInvitation]:
     created = await _service(session, settings).invite_member(
-        workspace_id, account.id, email=body.email, role=body.workspace_role
+        workspace_id,
+        account.id,
+        email=body.email,
+        role=body.workspace_role,
+        property_grants=body.property_grants,
     )
     return Envelope(data=created)
 

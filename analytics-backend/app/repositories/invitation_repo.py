@@ -5,6 +5,7 @@ is (Part 8 §8.4) — never in the clear."""
 import hashlib
 import secrets
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,12 +31,14 @@ class InvitationRepository:
         role: WorkspaceRole,
         invited_by: int,
         expires_at: datetime,
+        property_grants: list[dict[str, Any]] | None = None,
     ) -> tuple[Invitation, str]:
         raw_token = secrets.token_urlsafe(32)
         invitation = Invitation(
             workspace_id=workspace_id,
             email=email,
             workspace_role=role,
+            property_grants=property_grants or [],
             token_hash=_hash_token(raw_token),
             invited_by=invited_by,
             expires_at=expires_at,

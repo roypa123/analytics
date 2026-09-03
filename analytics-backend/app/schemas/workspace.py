@@ -12,7 +12,7 @@ from datetime import datetime
 
 from pydantic import EmailStr, Field
 
-from app.core.types import WorkspaceRole
+from app.core.types import PropertyRole, WorkspaceRole
 from app.schemas.common import CamelModel
 
 
@@ -22,6 +22,10 @@ class WorkspaceSummary(CamelModel):
     slug: str
     plan: str
     my_role: WorkspaceRole
+    # Part 8 §8.1 (D-19, revised) — the D-25 signup-tab choice. Drives which
+    # Settings sections the frontend renders (Members/Invite/Pending
+    # invitations); never used for authorization.
+    is_organisation: bool
 
 
 class UpdateWorkspaceRequest(CamelModel):
@@ -40,9 +44,19 @@ class UpdateMemberRoleRequest(CamelModel):
     workspace_role: WorkspaceRole
 
 
+class PropertyGrant(CamelModel):
+    property_id: int
+    property_role: PropertyRole
+
+
 class InviteMemberRequest(CamelModel):
     email: EmailStr
     workspace_role: WorkspaceRole
+    # Rule 1 (Part 8 §8.6) means these are only meaningful for a "member"
+    # invite — an owner/admin invitee already sees every property. Ignored,
+    # not rejected, when sent alongside an owner/admin role: harmless, and
+    # simpler than asking the client to know the rule.
+    property_grants: list[PropertyGrant] = Field(default_factory=list)
 
 
 class InvitationSummary(CamelModel):

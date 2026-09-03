@@ -36,6 +36,22 @@ seat is purchased.
 The B2C/B2B distinction therefore lives in **Part 12 (billing entitlements)**
 and in **UI affordances**, not in the schema.
 
+> **Revision (post-implementation).** Gating the Members/Invite/Pending-
+> invitations UI on live seat count, as originally written above, has a
+> bootstrap hole Part 12's billing entitlements don't cover yet: a brand-new
+> Organisation-tab signup has exactly one member too, so "hide until 2
+> members" hides the only control (Invite) that could ever produce a second
+> one. Until Part 12's seat-purchase flow exists to reopen it, `core.
+> workspaces` carries one additional column, `is_organisation boolean` (D-25's
+> tab choice, migration `0003`), used *only* to decide whether Settings shows
+> that UI at all. Authorization is unaffected — every workspace still goes
+> through the same memberships/property_access checks regardless of this
+> flag, so D-19's "not two data models" still holds; only the UI-affordance
+> half of this section's original design changed. Individual-tab workspaces
+> never see Members/Invite/Pending-invitations (Part 8 §8.1's "no teammates,
+> no invitations, no permission UI" is now literal); Organisation-tab
+> workspaces see them immediately, gated by role as §8.6 already specifies.
+
 ---
 
 ## 8.2 The tenancy hierarchy
@@ -317,12 +333,24 @@ Only the API service authenticates.
 | Delete property | ✅ | ✅ | ❌ |
 | Invite member | ✅ | ✅ | ❌ |
 | Remove member | ✅ | ✅ | ❌ |
-| Change member's workspace role | ✅ | ❌ | ❌ |
+| Change a member's role (member ↔ admin) | ✅ | ✅ | ❌ |
+| Grant or remove the owner role | ✅ | ❌ | ❌ |
 | Grant/revoke property access | ✅ | ✅ | ❌ |
 | **Manage billing & subscription** | ✅ | ❌ | ❌ |
 | **View invoices** | ✅ | ✅ | ❌ |
 | Manage workspace API keys | ✅ | ✅ | ❌ |
 | View audit log | ✅ | ✅ | ❌ |
+
+> **Revision.** "Change member's workspace role" was originally owner-only,
+> full stop. In practice an admin already has every other member-management
+> power (invite, remove) an org's day-to-day operation needs, so restricting
+> the ordinary member↔admin toggle to the owner alone just made the owner a
+> bottleneck for no security benefit. The one move that stays owner-only is
+> touching the `owner` role itself — promoting someone to it or demoting the
+> current owner away from it — since that specific transfer is the actual
+> privilege escalation an admin should not be able to grant themselves or a
+> friend. `WorkspaceService.update_member_role` enforces this split
+> (`touches_owner` check) rather than a single role comparison.
 
 ### Property-scoped capabilities
 
@@ -471,15 +499,19 @@ endpoint that doesn't."
    auto-generated from full name depending on the tab, plan `free`, with the
    account as `owner`.
 3. Create first property → tracking snippet → install verification.
-4. The members and permissions UI is **hidden** while the workspace has one
-   seat and the plan has no seat entitlement (Part 12).
+4. The members and permissions UI is **hidden** for an Individual-tab
+   workspace, full stop (`is_organisation = false` — see the §8.1 revision
+   above); an Organisation-tab workspace shows it immediately, gated by role.
 
 The user still experiences a single-player product on the Individual tab —
 inviting a second member is the entire B2C→B2B upgrade, per D-19 — but
 someone who already knows they're setting up a team can name it up front on
-the Organisation tab. This is a UI/copy choice, not a schema change: the
-underlying table stays `core.workspaces`, and both tabs hit the same
-endpoint.
+the Organisation tab and gets the Members/Invite UI right away rather than
+after their first invite lands. The underlying table stays `core.workspaces`
+and both tabs hit the same registration endpoint — `is_organisation` is a
+single extra column driven by which tab was used, not a second object graph
+or a second code path (D-19 still holds); see the §8.1 revision for why this
+one column exists despite D-19's original "not in the schema" phrasing.
 
 The login page shows the same two tabs. The Individual tab is plain
 `email`/`password`. The **Organisation tab adds an "Organisation" field**:
