@@ -30,7 +30,7 @@ Radix. Every later part is written against those findings.
 | 2 | [System Architecture](02-system-architecture.md) | Four deployables, write/read path separation, Redis's roles |
 | 3 | [Database Architecture](03-database-architecture.md) | Schemas, partitioning, the rollup strategy, HLL, retention |
 | 4 | [Backend Architecture](04-backend-architecture.md) | FastAPI layering, repositories, transactions, the query engine |
-| 5 | Ingestion Pipeline | *pending* |
+| 5 | [Ingestion Pipeline](05-ingestion-pipeline.md) | Phase 1 pragmatic-MVP build: write path, sessionization, Redis's three roles, read path, deferred-to-Phase-2 list |
 | 6 | Background Processing | *pending* |
 | 7 | [Frontend Architecture](07-frontend-architecture.md) | The ten folders, state split, query keys, components, routing, motion/illustration design system, responsive design |
 | 8 | [Auth, Tenancy & Access Control](08-auth-and-tenancy.md) | Tokens, two-axis RBAC, per-property access, invitations, API keys |
@@ -72,6 +72,7 @@ Decisions that are expensive to reverse. Each is argued where it is made.
 | D-23 | Never stop ingesting events for non-payment — degrade reporting instead | Part 12 §12.7 |
 | D-24 | Framer Motion for animation; generated inline SVG/CSS illustration, no external image assets | Part 7 §7.17 |
 | D-25 | Individual/Organisation tabs on signup (org name asked only on Organisation) and login (org name validated against the account's memberships only on Organisation) | Part 8 §8.8 |
+| D-26 | Ship realtime/reports/dashboard as a Phase 1 pragmatic MVP (synchronous inserts, no rollups, raw-event reads) before building D-06/D-09/D-10's full infrastructure | Part 5 §5.1 |
 
 ## Project-directed constraints
 
@@ -122,6 +123,8 @@ Concrete work items surfaced by the audit and the design.
 | A-11 | Accountant review of GST treatment, place-of-supply, and invoice format | 12 §12.2 |
 | A-12 | Decide annual billing (interacts with A-10) | 12 §12.13 |
 | A-13 | Confirm whether non-INR international customers are in scope | 12 §12.13 |
+| A-14 | Build the first `agg_daily_*` rollup once a raw-event range scan is measurably slow (D-10's promotion trigger) | 5 §5.11 |
+| A-15 | Supply a MaxMind `.mmdb` file and set `ANALYTICS__GEOIP_COUNTRY_DB_PATH`; `lookup_country` returns `None` until then | 5 §5.1 |
 
 ---
 

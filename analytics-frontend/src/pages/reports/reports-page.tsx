@@ -31,6 +31,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-state"
 import { useProperties } from "@/hooks/queries/use-properties"
+import { useReportBreakdown } from "@/hooks/queries/use-report-breakdown"
 import { fadeUp, staggerContainer } from "@/lib/motion"
 import { reportsRoute } from "@/routing/routes/reports.route"
 import type { ReportDimension } from "@/routing/search-validators"
@@ -102,6 +103,71 @@ const REPORT_TABS: ReportTab[] = [
 // the two that don't make sense per-row in a breakdown table).
 const METRIC_COLUMNS = ["Sessions", "Pageviews", "Bounce rate"] as const
 
+const numberFormatter = new Intl.NumberFormat()
+
+interface ReportBreakdownTableProps {
+  propertyId: number
+  tab: ReportTab
+}
+
+// Only the active tab's `TabsContent` is mounted (Radix unmounts inactive
+// ones rather than hiding them), so putting the query hook in its own
+// component — instead of at the page level — means switching tabs fetches
+// on demand, not all seven dimensions up front.
+function ReportBreakdownTable({ propertyId, tab }: ReportBreakdownTableProps) {
+  const { data, isLoading } = useReportBreakdown(propertyId, tab.value)
+  const rows = data ?? []
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{tab.dimensionLabel}</TableHead>
+          {METRIC_COLUMNS.map((column) => (
+            <TableHead key={column} className="text-right">
+              {column}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {isLoading ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={METRIC_COLUMNS.length + 1} className="p-0">
+              <Skeleton className="m-4 h-64 w-[calc(100%-2rem)]" />
+            </TableCell>
+          </TableRow>
+        ) : rows.length === 0 ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={METRIC_COLUMNS.length + 1} className="p-0">
+              <Empty className="border-0 py-10">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <tab.icon />
+                  </EmptyMedia>
+                  <EmptyTitle>No {tab.label.toLowerCase()} data yet</EmptyTitle>
+                  <EmptyDescription>
+                    Once your tracking snippet starts sending events, this breakdown fills in.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            </TableCell>
+          </TableRow>
+        ) : (
+          rows.map((row) => (
+            <TableRow key={row.dimensionValue}>
+              <TableCell className="max-w-xs truncate font-medium">{row.dimensionValue}</TableCell>
+              <TableCell className="text-right">{numberFormatter.format(row.sessions)}</TableCell>
+              <TableCell className="text-right">{numberFormatter.format(row.pageviews)}</TableCell>
+              <TableCell className="text-right">{(row.bounceRate * 100).toFixed(1)}%</TableCell>
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  )
+}
+
 // Reports page: one breakdown table per Tier-1 dimension. Same honest-empty
 // treatment as the dashboard (Part 5's ingestion pipeline doesn't persist
 // events yet) — real column headers so the eventual shape is visible, an
@@ -110,7 +176,6 @@ export function ReportsPage() {
   const navigate = useNavigate()
   const search = reportsRoute.useSearch()
   const { data: properties, isLoading: isLoadingProperties } = useProperties()
-  const hasProperty = (properties?.length ?? 0) > 0
   const property = properties?.[0]
 
   return (
@@ -132,12 +197,12 @@ export function ReportsPage() {
             </p>
           )}
         </div>
-        {hasProperty && <span className="text-sm text-muted-foreground">Last 7 days</span>}
+        {property && <span className="text-sm text-muted-foreground">Last 7 days</span>}
       </motion.div>
 
       {isLoadingProperties ? (
         <Skeleton className="h-96 w-full" />
-      ) : !hasProperty ? (
+      ) : !property ? (
         <NoPropertyEmptyState />
       ) : (
         <motion.div variants={fadeUp}>
@@ -167,36 +232,7 @@ export function ReportsPage() {
                     <CardDescription>{tab.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{tab.dimensionLabel}</TableHead>
-                          {METRIC_COLUMNS.map((column) => (
-                            <TableHead key={column} className="text-right">
-                              {column}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow className="hover:bg-transparent">
-                          <TableCell colSpan={METRIC_COLUMNS.length + 1} className="p-0">
-                            <Empty className="border-0 py-10">
-                              <EmptyHeader>
-                                <EmptyMedia variant="icon">
-                                  <tab.icon />
-                                </EmptyMedia>
-                                <EmptyTitle>No {tab.label.toLowerCase()} data yet</EmptyTitle>
-                                <EmptyDescription>
-                                  Once your tracking snippet starts sending events, this
-                                  breakdown fills in.
-                                </EmptyDescription>
-                              </EmptyHeader>
-                            </Empty>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                    <ReportBreakdownTable propertyId={property.id} tab={tab} />
                   </CardContent>
                 </Card>
               </TabsContent>

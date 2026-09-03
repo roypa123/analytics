@@ -71,7 +71,13 @@ class RealtimeRepository:
     async def get_session_state(
         self, *, property_id: int, visitor_hash_hex: str
     ) -> SessionState | None:
-        raw = await self._redis.hgetall(_visitor_key(property_id, visitor_hash_hex))
+        # redis-py's stubs type `hgetall`'s return as a bare union of the
+        # sync and async result types rather than keying off `Redis[str]`
+        # (this client is constructed with `decode_responses=True`, so the
+        # runtime value is always `dict[str, str]`).
+        raw: dict[str, str] = await self._redis.hgetall(  # type: ignore[misc]
+            _visitor_key(property_id, visitor_hash_hex)
+        )
         if not raw:
             return None
         return SessionState(
@@ -126,7 +132,7 @@ class RealtimeRepository:
         async with self._redis.pipeline(transaction=False) as pipe:
             for visitor_hash_hex in visitor_hashes:
                 pipe.hmget(
-                    _visitor_key(property_id, visitor_hash_hex), "page_path", "country_code"
+                    _visitor_key(property_id, visitor_hash_hex), ["page_path", "country_code"]
                 )
             results = await pipe.execute()
 

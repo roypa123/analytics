@@ -2,6 +2,8 @@
 // arrays anywhere else. The hierarchy is what makes invalidation work: e.g.
 // invalidating properties.all() clears every list AND every detail.
 
+import type { ReportDimension } from "@/routing/search-validators"
+
 export const queryKeys = {
   auth: {
     me: () => ["auth", "me"] as const,
@@ -18,5 +20,10 @@ export const queryKeys = {
     // (Part 4 property_service.py). Add the param back once that changes.
     list: () => [...queryKeys.properties.all(), "list"] as const,
     detail: (propertyId: string) => [...queryKeys.properties.all(), "detail", propertyId] as const,
+  },
+  reports: {
+    all: () => ["reports"] as const,
+    breakdown: (propertyId: number, dimension: ReportDimension) =>
+      [...queryKeys.reports.all(), "breakdown", propertyId, dimension] as const,
   },
 } as const

@@ -46,8 +46,9 @@ def _version(parsed: dict[str, str | None]) -> str | None:
 
 
 def parse_user_agent(ua_string: str) -> ParsedUserAgent:
-    browser = user_agent_parser.ParseUserAgent(ua_string)
-    os_ = user_agent_parser.ParseOS(ua_string)
+    # `ua_parser`'s legacy `user_agent_parser` module ships no type stubs.
+    browser = user_agent_parser.ParseUserAgent(ua_string)  # type: ignore[no-untyped-call]
+    os_ = user_agent_parser.ParseOS(ua_string)  # type: ignore[no-untyped-call]
     return ParsedUserAgent(
         device_type=_classify_device_type(ua_string),
         browser_name=browser.get("family") or None,

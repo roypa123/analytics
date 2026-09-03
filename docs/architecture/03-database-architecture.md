@@ -205,6 +205,11 @@ The lookup tables live in `analytics.dim_*` and are cached in-process in both
 the collector (to encode) and the API (to decode). New values are added by the
 collector via an upsert into the dimension table — rare enough not to matter.
 
+> **Phase 1 deviation.** The current build stores these four columns as plain
+> `text`, deferring the `dim_*` tables and the lookup-or-create round trip
+> until write volume actually makes the row-size saving matter. See Part 5
+> §5.4 for the reasoning and the backfill path.
+
 ---
 
 ## 3.4 Partitioning `events_raw`
@@ -266,6 +271,12 @@ Note also: attaching a new partition when a `DEFAULT` exists requires Postgres
 to scan the default partition to verify no rows belong in the new range. Keep
 the default empty and this is instant; let it fill and partition maintenance
 starts taking locks for minutes. Part 9 §9.8.
+
+> **Phase 1 deviation.** No `arq` worker deployment exists yet to run
+> mechanism 2 in-process, so the current build substitutes a migration that
+> pre-creates a 38-day window plus a cron-invoked idempotent script
+> (`scripts/ensure_partitions.py`) implementing the same default-partition
+> alert. `pg_partman` remains the Phase 2 target. See Part 5 §5.9.
 
 ---
 
@@ -426,6 +437,14 @@ Three-part answer:
 > are slow; the mitigation is that we measure which ones and fix those
 > specifically.
 
+> **Phase 1 deviation.** No `agg_daily_*` tables exist yet — every report and
+> dashboard query is today's version of point 2 above (raw-event fallback),
+> range-capped and always taking the "computing over raw data" path. There is
+> no promotion telemetry yet either; D-10's usage-driven Tier C is Phase 2.
+> Building the first rollup (A-14) is the highest-leverage Phase 2 step,
+> since the read path already has the fallback structure this section
+> describes. See Part 5 §5.7, §5.11.
+
 ---
 
 ## 3.7 Multi-day unique visitors — HyperLogLog
@@ -473,6 +492,12 @@ low-cardinality properties and an approximate `COUNT(DISTINCT)` over raw events
 (range-capped) otherwise — noticeably worse. Verify extension availability
 during infrastructure selection; this is a hosting requirement, not an
 afterthought.
+
+> **Phase 1 deviation.** No `hll` extension and no rollup tables exist yet,
+> so the current build is already running this section's documented
+> fallback: an approximate `COUNT(DISTINCT)` per day, summed across the
+> range, surfaced via `DashboardSummary.isVisitorsApproximate` (A-07's
+> disclosure requirement, implemented). See Part 5 §5.7.
 
 ---
 
@@ -538,6 +563,15 @@ requires row movement to be enabled.
 here and in every rollup. That is precisely why changing a property's timezone
 requires a full rebuild rather than a settings toggle — the value is baked into
 millions of rows.
+
+> **Phase 1 deviation.** This table doesn't exist yet. Bounce rate, session
+> counts, and duration are instead derived per-query from `events_raw` via a
+> `GROUP BY session_id` CTE (`session_totals` in `reports_repo.py`), reused by
+> both the breakdown and dashboard queries. Correct, but pays the window-
+> function cost this section describes on every request rather than once at
+> sessionization time — acceptable at Phase 1's raw-event-anyway query volume,
+> not once real traffic makes range scans slow (same trigger as A-14). See
+> Part 5 §5.7.
 
 ---
 

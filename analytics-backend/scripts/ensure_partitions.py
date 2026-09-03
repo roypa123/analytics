@@ -58,7 +58,8 @@ def ensure_partitions(dsn: str, *, days_ahead: int) -> list[str]:
         # A non-empty DEFAULT partition means partition creation has fallen
         # behind — Part 3 §3.4's "alert if it ever contains rows."
         cur.execute("SELECT count(*) FROM analytics.events_raw_default LIMIT 1")
-        default_count = cur.fetchone()[0]
+        row = cur.fetchone()
+        default_count = row[0] if row is not None else 0
         if default_count:
             print(
                 f"WARNING: analytics.events_raw_default has {default_count} row(s) — "

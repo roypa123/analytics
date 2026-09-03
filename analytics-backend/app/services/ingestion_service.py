@@ -217,12 +217,11 @@ class IngestionService:
         if last is None:
             return str(uuid.uuid4())
 
-        last_occurred_at: datetime = last["occurred_at"]
-        gap = (occurred_at - last_occurred_at).total_seconds()
+        gap = (occurred_at - last.occurred_at).total_seconds()
         campaign_changed = bool(utm_source) and (
-            utm_source != (last["utm_source"] or "") or utm_medium != (last["utm_medium"] or "")
+            utm_source != (last.utm_source or "") or utm_medium != (last.utm_medium or "")
         )
-        same_local_date = last_occurred_at.astimezone(tz).date() == local_date
+        same_local_date = last.occurred_at.astimezone(tz).date() == local_date
         if gap < timeout_minutes * 60 and same_local_date and not campaign_changed:
-            return str(last["session_id"])
+            return last.session_id
         return str(uuid.uuid4())

@@ -13,4 +13,10 @@ export const paths = {
   properties: {
     root: "/properties",
   },
+  reports: {
+    // Part 4 §4.14 — property-scoped analytics routes, mirrors
+    // `app/api/v1/reports.py`'s `/properties/{property_id}/...` prefix.
+    breakdown: (propertyId: number, dimension: string) =>
+      `/properties/${propertyId}/reports/${dimension}`,
+  },
 } as const

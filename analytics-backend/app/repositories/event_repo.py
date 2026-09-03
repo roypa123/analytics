@@ -5,6 +5,7 @@ there is no mapped `Event` class, and there should not be one; this table is
 never read or written row-by-row through an identity map.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import text
@@ -50,6 +51,14 @@ _LAST_EVENT_FOR_VISITOR = text(
 )
 
 
+@dataclass(frozen=True)
+class LastVisitorEvent:
+    session_id: str
+    occurred_at: datetime
+    utm_source: str | None
+    utm_medium: str | None
+
+
 class EventRepository:
     """Phase 1 writes go straight to Postgres, one row per event — no
     in-process batch buffer, no Redis Stream, no `COPY` (D-06's B+C design,
@@ -67,7 +76,7 @@ class EventRepository:
 
     async def get_last_event_for_visitor(
         self, *, property_id: int, visitor_hash: bytes, since: datetime
-    ) -> dict[str, object] | None:
+    ) -> LastVisitorEvent | None:
         """Session-cache-miss fallback (Part 1 §1.6 / §2.4 step 7): when Redis
         has no last-seen entry for this visitor (cold cache, first event after
         a Redis restart), reconstruct enough state from `events_raw` to decide
@@ -79,4 +88,11 @@ class EventRepository:
             {"property_id": property_id, "visitor_hash": visitor_hash, "since": since},
         )
         row = result.mappings().one_or_none()
-        return dict(row) if row is not None else None
+        if row is None:
+            return None
+        return LastVisitorEvent(
+            session_id=str(row["session_id"]),
+            occurred_at=row["occurred_at"],
+            utm_source=row["utm_source"],
+            utm_medium=row["utm_medium"],
+        )
