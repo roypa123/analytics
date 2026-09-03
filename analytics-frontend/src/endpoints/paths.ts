@@ -19,4 +19,11 @@ export const paths = {
     breakdown: (propertyId: number, dimension: string) =>
       `/properties/${propertyId}/reports/${dimension}`,
   },
+  dashboard: {
+    summary: (propertyId: number) => `/properties/${propertyId}/dashboard/summary`,
+    trend: (propertyId: number) => `/properties/${propertyId}/dashboard/trend`,
+  },
+  realtime: {
+    snapshot: (propertyId: number) => `/properties/${propertyId}/realtime`,
+  },
 } as const

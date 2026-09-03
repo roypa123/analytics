@@ -26,4 +26,14 @@ export const queryKeys = {
     breakdown: (propertyId: number, dimension: ReportDimension) =>
       [...queryKeys.reports.all(), "breakdown", propertyId, dimension] as const,
   },
+  dashboard: {
+    all: () => ["dashboard"] as const,
+    summary: (propertyId: number) => [...queryKeys.dashboard.all(), "summary", propertyId] as const,
+    trend: (propertyId: number) => [...queryKeys.dashboard.all(), "trend", propertyId] as const,
+  },
+  realtime: {
+    all: () => ["realtime"] as const,
+    snapshot: (propertyId: number) =>
+      [...queryKeys.realtime.all(), "snapshot", propertyId] as const,
+  },
 } as const

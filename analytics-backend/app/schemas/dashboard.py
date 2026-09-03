@@ -21,3 +21,14 @@ class DashboardSummary(CamelModel):
     # merge yet — Part 3 §3.7). The frontend must render a caveat, not a bare
     # number, whenever this is true.
     is_visitors_approximate: bool
+
+
+class DashboardTrendPoint(CamelModel):
+    """Part 1 §1.2's "time-series dashboard" Tier-1 feature — one point per
+    property-local day in the summary's range. `reports_service.py` fills in
+    zero-count days so the chart's x-axis has no gaps, same "real shape, no
+    fabricated data" posture as everywhere else in Phase 1."""
+
+    date: date
+    sessions: int
+    pageviews: int

@@ -11,7 +11,7 @@ from app.core.types import ReportDimension
 from app.models.core.property import Property
 from app.repositories.reports_repo import ReportsRepository
 from app.schemas.common import Envelope
-from app.schemas.dashboard import DashboardSummary
+from app.schemas.dashboard import DashboardSummary, DashboardTrendPoint
 from app.schemas.reports import ReportRow
 from app.services.reports_service import ReportsService
 
@@ -41,3 +41,13 @@ async def get_dashboard_summary(
 ) -> Envelope[DashboardSummary]:
     summary = await _service(session, settings).get_dashboard_summary(property_=property_)
     return Envelope(data=summary)
+
+
+@router.get("/dashboard/trend", response_model=Envelope[list[DashboardTrendPoint]])
+async def get_dashboard_trend(
+    property_: Property = Depends(get_owned_property),
+    session: AsyncSession = Depends(get_read_session),
+    settings: Settings = Depends(get_app_settings),
+) -> Envelope[list[DashboardTrendPoint]]:
+    points = await _service(session, settings).get_dashboard_trend(property_=property_)
+    return Envelope(data=points)

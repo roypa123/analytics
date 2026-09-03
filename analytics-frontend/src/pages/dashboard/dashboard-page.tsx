@@ -6,11 +6,22 @@ import {
   FileText,
   Fingerprint,
   Layers,
-  LineChart,
+  LineChart as LineChartIcon,
   Link2,
   Percent,
   Users,
+  type LucideIcon,
 } from "lucide-react"
+import type { ReactNode } from "react"
+import {
+  CartesianGrid,
+  Line,
+  LineChart as RechartsLineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -24,33 +35,187 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-state"
 import { RealtimeCounter } from "@/components/analytics/realtime/realtime-counter"
+import { useDashboardSummary } from "@/hooks/queries/use-dashboard-summary"
+import { useDashboardTrend } from "@/hooks/queries/use-dashboard-trend"
 import { useProperties } from "@/hooks/queries/use-properties"
+import { useRealtimeSnapshot } from "@/hooks/queries/use-realtime-snapshot"
+import { useReportBreakdown } from "@/hooks/queries/use-report-breakdown"
 import { cardTap, cardVariants, fadeUp, iconPop, staggerContainer } from "@/lib/motion"
+import type { ReportDimension } from "@/routing/search-validators"
+import type { DashboardSummary } from "@/types/api/dashboard"
 
-// Part 1 §1.2 (Tier 1) — the six core metrics. All still placeholders: real
-// values arrive with the reporting API (Part 1 §1.11), not built yet.
-const PLACEHOLDER_METRICS = [
-  { label: "Sessions", value: "—", icon: Users },
-  { label: "Pageviews", value: "—", icon: Activity },
-  { label: "Unique visitors", value: "—", icon: Fingerprint },
-  { label: "Bounce rate", value: "—", icon: Percent },
-  { label: "Avg. session duration", value: "—", icon: Clock },
-  { label: "Views / session", value: "—", icon: Layers },
-] as const
+const numberFormatter = new Intl.NumberFormat()
 
-// Placeholder for the Tier-1 overview (Part 1 §1.2). Proves the auth
-// vertical slice end-to-end: protected route → authenticated request →
-// account data rendered. Header/sign-out live in AppShell (Part 7 §7.10).
-//
-// Every section below the metric grid is an honest empty state, not
-// fabricated numbers — the collector's ingestion pipeline (Part 5) doesn't
-// persist events yet, so there is genuinely no data behind a chart or a
-// breakdown table. A convincing-looking fake chart would be worse than no
-// chart at all.
+function formatDuration(totalSeconds: number): string {
+  const seconds = Math.round(totalSeconds)
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return minutes > 0 ? `${minutes}m ${remainder}s` : `${remainder}s`
+}
+
+function formatTickDate(value: unknown): string {
+  return typeof value === "string"
+    ? new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : ""
+}
+
+// Part 1 §1.2 (Tier 1) — the six core metrics, sourced from
+// `GET /properties/{id}/dashboard/summary`.
+const METRIC_DEFS: { label: string; icon: LucideIcon }[] = [
+  { label: "Sessions", icon: Users },
+  { label: "Pageviews", icon: Activity },
+  { label: "Unique visitors", icon: Fingerprint },
+  { label: "Bounce rate", icon: Percent },
+  { label: "Avg. session duration", icon: Clock },
+  { label: "Views / session", icon: Layers },
+]
+
+function metricValues(summary: DashboardSummary | undefined): string[] {
+  if (!summary) return ["—", "—", "—", "—", "—", "—"]
+  return [
+    numberFormatter.format(summary.sessions),
+    numberFormatter.format(summary.pageviews),
+    `${summary.isVisitorsApproximate ? "~" : ""}${numberFormatter.format(summary.visitorsApprox)}`,
+    `${(summary.bounceRate * 100).toFixed(1)}%`,
+    formatDuration(summary.avgSessionDurationSeconds),
+    summary.viewsPerSession.toFixed(2),
+  ]
+}
+
+interface SessionsTrendChartProps {
+  propertyId: number
+}
+
+// Part 1 §1.2's "time-series dashboard" feature, backed by
+// `GET /properties/{id}/dashboard/trend` (Part 5 §5.11's zero-filled days).
+function SessionsTrendChart({ propertyId }: SessionsTrendChartProps) {
+  const { data, isLoading } = useDashboardTrend(propertyId)
+  const points = data ?? []
+  const hasData = points.some((point) => point.sessions > 0 || point.pageviews > 0)
+
+  if (isLoading) {
+    return <Skeleton className="h-64 w-full" />
+  }
+
+  if (!hasData) {
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <LineChartIcon />
+          </EmptyMedia>
+          <EmptyTitle>No data yet</EmptyTitle>
+          <EmptyDescription>
+            Once your tracking snippet starts sending events, traffic shows up here.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={256}>
+      <RechartsLineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatTickDate}
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+          axisLine={false}
+        />
+        <YAxis allowDecimals={false} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={32} />
+        <Tooltip labelFormatter={formatTickDate} contentStyle={{ fontSize: 12 }} />
+        <Line
+          type="monotone"
+          dataKey="sessions"
+          name="Sessions"
+          stroke="var(--color-primary)"
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="pageviews"
+          name="Pageviews"
+          stroke="var(--color-chart-2)"
+          strokeWidth={2}
+          dot={false}
+        />
+      </RechartsLineChart>
+    </ResponsiveContainer>
+  )
+}
+
+interface TopBreakdownListProps {
+  propertyId: number
+  dimension: ReportDimension
+  emptyIcon: LucideIcon
+  emptyTitle: string
+  emptyDescription?: ReactNode
+}
+
+// "Top pages" / "Top referrers" — the dashboard's condensed view of the same
+// breakdown data `reports-page.tsx` shows in full (`useReportBreakdown`),
+// trimmed to the top 5 by pageviews.
+function TopBreakdownList({
+  propertyId,
+  dimension,
+  emptyIcon: Icon,
+  emptyTitle,
+  emptyDescription,
+}: TopBreakdownListProps) {
+  const { data, isLoading } = useReportBreakdown(propertyId, dimension)
+  const rows = (data ?? []).slice(0, 5)
+
+  if (isLoading) {
+    return <Skeleton className="h-40 w-full" />
+  }
+
+  if (rows.length === 0) {
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Icon />
+          </EmptyMedia>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+        </EmptyHeader>
+        {emptyDescription && (
+          <EmptyContent>
+            <EmptyDescription>{emptyDescription}</EmptyDescription>
+          </EmptyContent>
+        )}
+      </Empty>
+    )
+  }
+
+  return (
+    <ul className="flex flex-col gap-3">
+      {rows.map((row) => (
+        <li key={row.dimensionValue} className="flex items-center justify-between gap-4 text-sm">
+          <span className="max-w-[70%] truncate font-mono text-xs text-muted-foreground">
+            {row.dimensionValue}
+          </span>
+          <span className="tabular-nums font-medium">{numberFormatter.format(row.pageviews)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// Dashboard: the Tier-1 overview (Part 1 §1.2), backed by
+// `GET /properties/{id}/dashboard/{summary,trend}`, the realtime endpoint,
+// and the Tier-1 breakdown endpoint reused from the Reports page. Every
+// section renders the real layout fed real data — an honest `Empty` state
+// only when the property genuinely has no events yet, never a fabricated
+// chart or number.
 export function DashboardPage() {
   const { data: properties, isLoading: isLoadingProperties } = useProperties()
-  const hasProperty = (properties?.length ?? 0) > 0
   const property = properties?.[0]
+  const { data: summary, isLoading: isLoadingSummary } = useDashboardSummary(property?.id)
+  const { data: realtime } = useRealtimeSnapshot(property?.id)
+  const values = metricValues(summary)
 
   return (
     <motion.div
@@ -71,17 +236,17 @@ export function DashboardPage() {
             </p>
           )}
         </div>
-        {hasProperty && <span className="text-sm text-muted-foreground">Last 7 days</span>}
+        {property && <span className="text-sm text-muted-foreground">Last 7 days</span>}
       </motion.div>
 
       {isLoadingProperties ? (
         <Skeleton className="h-32 w-full" />
-      ) : !hasProperty ? (
+      ) : !property ? (
         <NoPropertyEmptyState />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PLACEHOLDER_METRICS.map((metric) => (
+            {METRIC_DEFS.map((metric, index) => (
               <motion.div
                 key={metric.label}
                 variants={cardVariants}
@@ -97,7 +262,9 @@ export function DashboardPage() {
                     </motion.span>
                   </CardHeader>
                   <CardContent>
-                    <CardTitle className="text-2xl">{metric.value}</CardTitle>
+                    <CardTitle className="text-2xl">
+                      {isLoadingSummary ? <Skeleton className="h-8 w-16" /> : values[index]}
+                    </CardTitle>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -112,17 +279,7 @@ export function DashboardPage() {
                   <CardDescription>Traffic trend for the selected range.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Empty className="border">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <LineChart />
-                      </EmptyMedia>
-                      <EmptyTitle>No data yet</EmptyTitle>
-                      <EmptyDescription>
-                        Once your tracking snippet starts sending events, traffic shows up here.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
+                  <SessionsTrendChart propertyId={property.id} />
                 </CardContent>
               </Card>
             </motion.div>
@@ -138,7 +295,7 @@ export function DashboardPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RealtimeCounter count={0} label="Visitors active" />
+                  <RealtimeCounter count={realtime?.activeVisitors ?? 0} label="Visitors active" />
                 </CardContent>
               </Card>
             </motion.div>
@@ -152,25 +309,21 @@ export function DashboardPage() {
                   <CardDescription>Most-viewed pages in the selected range.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Empty className="border">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <FileText />
-                      </EmptyMedia>
-                      <EmptyTitle>No pageviews yet</EmptyTitle>
-                    </EmptyHeader>
-                    <EmptyContent>
-                      <EmptyDescription>
-                        <Link
-                          to="/onboarding/snippet"
-                          search={{ trackingId: property?.trackingId }}
-                          className="underline underline-offset-4"
-                        >
-                          Revisit the install snippet
-                        </Link>
-                      </EmptyDescription>
-                    </EmptyContent>
-                  </Empty>
+                  <TopBreakdownList
+                    propertyId={property.id}
+                    dimension="pages"
+                    emptyIcon={FileText}
+                    emptyTitle="No pageviews yet"
+                    emptyDescription={
+                      <Link
+                        to="/onboarding/snippet"
+                        search={{ trackingId: property.trackingId }}
+                        className="underline underline-offset-4"
+                      >
+                        Revisit the install snippet
+                      </Link>
+                    }
+                  />
                 </CardContent>
               </Card>
             </motion.div>
@@ -182,14 +335,12 @@ export function DashboardPage() {
                   <CardDescription>Where visitors are coming from.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Empty className="border">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <Link2 />
-                      </EmptyMedia>
-                      <EmptyTitle>No referrers yet</EmptyTitle>
-                    </EmptyHeader>
-                  </Empty>
+                  <TopBreakdownList
+                    propertyId={property.id}
+                    dimension="referrers"
+                    emptyIcon={Link2}
+                    emptyTitle="No referrers yet"
+                  />
                 </CardContent>
               </Card>
             </motion.div>

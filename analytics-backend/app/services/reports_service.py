@@ -6,11 +6,13 @@ range the raw-event repository can safely answer is the one both pages
 already show ("Last 7 days" in `dashboard-page.tsx` / `reports-page.tsx`).
 """
 
+from datetime import timedelta
+
 from app.core.config import Settings
 from app.core.types import ReportDimension
 from app.models.core.property import Property
 from app.repositories.reports_repo import ReportsRepository
-from app.schemas.dashboard import DashboardSummary
+from app.schemas.dashboard import DashboardSummary, DashboardTrendPoint
 from app.schemas.reports import ReportRow
 from app.utils.time import last_n_days_local, received_at_window
 
@@ -70,3 +72,32 @@ class ReportsService:
             visitors_approx=totals.visitors_approx,
             is_visitors_approximate=local_range.end_date > local_range.start_date,
         )
+
+    async def get_dashboard_trend(self, *, property_: Property) -> list[DashboardTrendPoint]:
+        local_range = last_n_days_local(
+            timezone=property_.timezone, days=self._settings.analytics.raw_query_range_cap_days
+        )
+        window = received_at_window(local_range.start_utc, local_range.end_utc)
+        rows = await self._repo.daily_trend(
+            property_id=property_.id,
+            received_from=window.start,
+            received_to=window.end,
+            occurred_from=local_range.start_utc,
+            occurred_to=local_range.end_utc,
+            timezone=property_.timezone,
+        )
+        by_date = {row.bucket_date: row for row in rows}
+
+        points: list[DashboardTrendPoint] = []
+        day = local_range.start_date
+        while day <= local_range.end_date:
+            row = by_date.get(day)
+            points.append(
+                DashboardTrendPoint(
+                    date=day,
+                    sessions=row.sessions if row else 0,
+                    pageviews=row.pageviews if row else 0,
+                )
+            )
+            day += timedelta(days=1)
+        return points

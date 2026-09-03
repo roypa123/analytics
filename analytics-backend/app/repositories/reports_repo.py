@@ -15,7 +15,7 @@ session_id` over the capped window rather than read from a maintained table.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +55,13 @@ class DashboardTotals:
     visitors_approx: int
     bounce_rate: float
     avg_session_duration_seconds: float
+
+
+@dataclass(frozen=True)
+class DailyTrendRow:
+    bucket_date: date
+    sessions: int
+    pageviews: int
 
 
 class ReportsRepository:
@@ -192,3 +199,49 @@ class ReportsRepository:
             bounce_rate=row.bounce_rate or 0.0,
             avg_session_duration_seconds=row.avg_session_duration_seconds or 0.0,
         )
+
+    async def daily_trend(
+        self,
+        *,
+        property_id: int,
+        received_from: datetime,
+        received_to: datetime,
+        occurred_from: datetime,
+        occurred_to: datetime,
+        timezone: str,
+    ) -> list[DailyTrendRow]:
+        """One row per property-local day that has at least one event.
+        `reports_service.py` fills in the zero-count gaps — a `GROUP BY`
+        can't invent rows for days with no data."""
+        query = text(
+            """
+            SELECT
+                (occurred_at AT TIME ZONE :timezone)::date AS bucket_date,
+                COUNT(DISTINCT session_id) AS sessions,
+                COUNT(*) FILTER (WHERE event_name = 'pageview') AS pageviews
+            FROM analytics.events_raw
+            WHERE property_id = :property_id
+              AND received_at >= :received_from AND received_at < :received_to
+              AND occurred_at >= :occurred_from AND occurred_at < :occurred_to
+              AND is_bot = false AND session_id IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1
+            """
+        )
+        result = await self._session.execute(
+            query,
+            {
+                "property_id": property_id,
+                "received_from": received_from,
+                "received_to": received_to,
+                "occurred_from": occurred_from,
+                "occurred_to": occurred_to,
+                "timezone": timezone,
+            },
+        )
+        return [
+            DailyTrendRow(
+                bucket_date=row.bucket_date, sessions=row.sessions, pageviews=row.pageviews
+            )
+            for row in result
+        ]
