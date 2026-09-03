@@ -7,12 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Logo } from "@/components/illustrations/logo"
+import { env } from "@/config/env"
 import { useProperties } from "@/hooks/queries/use-properties"
 import { fadeUp } from "@/lib/motion"
 import { installSnippetRoute } from "@/routing/routes/onboarding/install-snippet.route"
 
+// There is no real CDN yet (Part 2 §2.3) — the collector deployable serves
+// this file itself at `GET /tracker.js` (app/collector/main.py), so this
+// snippet is genuinely functional, not a placeholder. `data-collector-url`
+// is set explicitly to VITE_COLLECTOR_URL (config/env.ts) rather than
+// relying on the script's own localhost default, so the same generated
+// snippet keeps working once the collector's URL differs per environment.
 function buildSnippet(trackingId: string): string {
-  return `<script defer src="https://cdn.nexlytics.io/tracker.js" data-tracking-id="${trackingId}"></script>`
+  return `<script defer src="${env.collectorUrl}/tracker.js" data-tracking-id="${trackingId}" data-collector-url="${env.collectorUrl}"></script>`
 }
 
 // Part 8 §8.8 — the last onboarding step: "create first property → tracking

@@ -4,10 +4,10 @@ import { lazy, Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { NoPropertyEmptyState } from "@/components/analytics/no-property-empty-state"
-import type { ActiveCountry } from "@/components/analytics/realtime/realtime-map"
 import { RealtimeCounter } from "@/components/analytics/realtime/realtime-counter"
 import { RealtimePageList } from "@/components/analytics/realtime/realtime-page-list"
 import { useProperties } from "@/hooks/queries/use-properties"
+import { useRealtimeSnapshot } from "@/hooks/queries/use-realtime-snapshot"
 import { fadeUp, staggerContainer } from "@/lib/motion"
 
 // `realtime-map.tsx` pulls in `dotted-map` (which needs `proj4` at runtime)
@@ -18,18 +18,16 @@ const RealtimeMap = lazy(() =>
   import("@/components/analytics/realtime/realtime-map").then((m) => ({ default: m.RealtimeMap }))
 )
 
-const NO_ACTIVE_COUNTRIES: ActiveCountry[] = []
-
-// Realtime view (Part 1 §1.2, Tier 1): "visitors in the last 30 minutes."
-// No realtime endpoint exists yet (Part 5's ingestion pipeline isn't wired
-// up), so this renders the real layout — hero counter, live world map, and
-// active-pages breakdown — fed a count of 0 and empty lists instead of a
-// fake "connecting..." spinner. Same honest-empty approach as the dashboard
-// and reports pages.
+// Realtime view (Part 1 §1.2, Tier 1): "visitors in the last 30 minutes,"
+// backed by `GET /properties/{id}/realtime` (Part 2 §2.7, Redis-backed) via
+// the same `useRealtimeSnapshot` hook the dashboard's "Right now" card
+// already uses. This page used to predate that endpoint and rendered the
+// layout fed a hardcoded 0/empty everywhere — now it shows the real numbers.
 export function RealtimePage() {
   const { data: properties, isLoading: isLoadingProperties } = useProperties()
   const hasProperty = (properties?.length ?? 0) > 0
   const property = properties?.[0]
+  const { data: snapshot, isLoading: isLoadingSnapshot } = useRealtimeSnapshot(property?.id)
 
   return (
     <motion.div
@@ -67,7 +65,11 @@ export function RealtimePage() {
                   <CardDescription>Active in the last 30 minutes.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <RealtimeCounter count={0} />
+                  {isLoadingSnapshot ? (
+                    <Skeleton className="h-24 w-full" />
+                  ) : (
+                    <RealtimeCounter count={snapshot?.activeVisitors ?? 0} />
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -79,9 +81,13 @@ export function RealtimePage() {
                   <CardDescription>Where active visitors are right now.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Suspense fallback={<Skeleton className="aspect-[126/60] w-full" />}>
-                    <RealtimeMap activeCountries={NO_ACTIVE_COUNTRIES} />
-                  </Suspense>
+                  {isLoadingSnapshot ? (
+                    <Skeleton className="aspect-[126/60] w-full" />
+                  ) : (
+                    <Suspense fallback={<Skeleton className="aspect-[126/60] w-full" />}>
+                      <RealtimeMap activeCountries={snapshot?.activeCountries ?? []} />
+                    </Suspense>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -94,7 +100,11 @@ export function RealtimePage() {
                 <CardDescription>What visitors are viewing right now.</CardDescription>
               </CardHeader>
               <CardContent>
-                <RealtimePageList pages={[]} />
+                {isLoadingSnapshot ? (
+                  <Skeleton className="h-40 w-full" />
+                ) : (
+                  <RealtimePageList pages={snapshot?.activePages ?? []} />
+                )}
               </CardContent>
             </Card>
           </motion.div>

@@ -15,10 +15,13 @@ but 204 for a normal request. Prometheus counters
 still pending) — structured log events stand in for now.
 """
 
+from pathlib import Path
+
 import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.core.config import get_settings
 from app.core.database import get_database
@@ -28,6 +31,8 @@ from app.schemas.event import CollectorEventRequest
 from app.services.ingestion_service import IngestionService
 
 logger = structlog.get_logger(__name__)
+
+_TRACKER_JS_PATH = Path(__file__).parent / "static" / "tracker.js"
 
 
 def _client_ip(request: Request) -> str:
@@ -58,6 +63,14 @@ def create_app() -> FastAPI:
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/tracker.js")
+    async def tracker_js() -> FileResponse:
+        # There is no real CDN yet (Part 2 §2.3) — the collector, already the
+        # public unauthenticated surface, serves the canonical script
+        # directly. The onboarding snippet (install-snippet-page.tsx) embeds
+        # this exact URL, so this is the file real installs load.
+        return FileResponse(_TRACKER_JS_PATH, media_type="text/javascript")
 
     @app.post("/event", status_code=204)
     async def collect_event(payload: CollectorEventRequest, request: Request) -> Response:
