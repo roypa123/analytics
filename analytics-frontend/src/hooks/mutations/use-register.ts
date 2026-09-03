@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSetAtom } from "jotai"
+import { flushSync } from "react-dom"
 
 import { queryKeys } from "@/api/query-keys"
 import { accessTokenAtom } from "@/context/atoms/auth"
@@ -13,7 +14,12 @@ export function useRegister() {
   return useMutation({
     mutationFn: (body: RegisterRequest) => register(body),
     onSuccess: (result) => {
-      setAccessToken(result.accessToken)
+      // See use-login.ts — the caller navigates to a protected onboarding
+      // route right after this resolves, so the router's context needs to
+      // observe the new auth state before that navigation runs.
+      flushSync(() => {
+        setAccessToken(result.accessToken)
+      })
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() })
     },
   })

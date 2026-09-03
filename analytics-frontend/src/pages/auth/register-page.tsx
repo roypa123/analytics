@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isApiError } from "@/api/errors"
+import { PasswordInput } from "@/components/auth/password-input"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { GridGlow } from "@/components/illustrations/grid-glow"
 import { Logo } from "@/components/illustrations/logo"
@@ -23,6 +24,7 @@ interface RegisterFormValues {
   fullName: string
   email: string
   password: string
+  confirmPassword: string
 }
 
 // Part 8 §8.8, D-25 — the standalone signup path (as opposed to a teammate
@@ -38,6 +40,7 @@ export function RegisterPage() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<RegisterFormValues>()
 
@@ -174,9 +177,8 @@ export function RegisterPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="password">Password</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="new-password"
                     {...register("password", {
                       required: "Password is required",
@@ -185,6 +187,21 @@ export function RegisterPage() {
                   />
                   {errors.password && (
                     <p className="text-sm text-destructive">{errors.password.message}</p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="confirmPassword">Confirm password</Label>
+                  <PasswordInput
+                    id="confirmPassword"
+                    autoComplete="new-password"
+                    {...register("confirmPassword", {
+                      required: "Confirm your password",
+                      validate: (value) =>
+                        value === getValues("password") || "Passwords don't match",
+                    })}
+                  />
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
                   )}
                 </div>
                 {isApiError(registerAccount.error) && (

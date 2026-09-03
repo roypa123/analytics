@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isApiError } from "@/api/errors"
+import { PasswordInput } from "@/components/auth/password-input"
 import { AnalyticsHero } from "@/components/illustrations/analytics-hero"
 import { GridGlow } from "@/components/illustrations/grid-glow"
 import { Logo } from "@/components/illustrations/logo"
@@ -160,9 +161,8 @@ export function LoginPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="password">Password</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     autoComplete="current-password"
                     {...register("password", { required: "Password is required" })}
                   />
