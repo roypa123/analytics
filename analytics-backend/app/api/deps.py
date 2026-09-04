@@ -113,6 +113,14 @@ async def require_active_subscription(
             "An active subscription is required.", code="subscription_required"
         )
 
+    # Mirrors `get_current_account`'s own commit() below, for the same
+    # reason: the reads above auto-begin a transaction on this shared
+    # session that a downstream service's own `async with session.begin()`
+    # would otherwise collide with ("A transaction is already begun on this
+    # Session") — only ever surfaced once an account had real active access
+    # to reach a mutating route past this gate.
+    await session.commit()
+
 
 async def require_workspace_subscription(
     workspace_id: int,
@@ -131,3 +139,6 @@ async def require_workspace_subscription(
         raise PaymentRequiredError(
             "An active subscription is required.", code="subscription_required"
         )
+
+    # See the matching comment in `require_active_subscription` above.
+    await session.commit()

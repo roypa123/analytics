@@ -85,9 +85,14 @@ class BillingService:
             else:
                 # UNIQUE(workspace_id) means this row is replaced in place —
                 # each checkout attempt (first payment or renewal) gets its
-                # own fresh Order rather than reusing a stale one.
+                # own fresh Order rather than reusing a stale one. Deliberately
+                # does NOT touch `status`/`current_period_end`: a workspace
+                # with still-valid active access must keep that access for the
+                # rest of its window even if a checkout is *started* again
+                # (double-click, early renewal, a retry after a confirm
+                # failure) and then abandoned without a captured payment —
+                # only `_apply_captured_payment` may grant or revoke access.
                 existing.razorpay_order_id = razorpay_order_id
-                existing.status = "pending"
                 await self._session.flush()
 
             return StartCheckoutResponse(

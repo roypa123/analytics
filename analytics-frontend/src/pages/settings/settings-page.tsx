@@ -849,9 +849,14 @@ export function SettingsPage() {
             />
           </motion.div>
 
-          <motion.div variants={fadeUp} className="max-w-xl">
-            <AcceptInvitationCard />
-          </motion.div>
+          {/* Part 8 §8.1 (D-19): same "no teammates, no invitations" rule
+              TeamSection applies above — an Individual-tab workspace has no
+              use for joining another workspace either. */}
+          {workspace.isOrganisation && (
+            <motion.div variants={fadeUp} className="max-w-xl">
+              <AcceptInvitationCard />
+            </motion.div>
+          )}
         </>
       )}
     </motion.div>
