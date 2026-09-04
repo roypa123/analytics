@@ -1,6 +1,7 @@
 import { createRoute } from "@tanstack/react-router"
 
 import { AppShell } from "@/components/layout/app-shell"
+import { requireActiveSubscription } from "@/routing/guards"
 import { appRoute } from "@/routing/routes/app.route"
 
 // Part 7 §7.10, §7.12 — the layout route for property-scoped pages. A
@@ -10,5 +11,6 @@ import { appRoute } from "@/routing/routes/app.route"
 export const appShellRoute = createRoute({
   getParentRoute: () => appRoute,
   id: "app-shell",
+  beforeLoad: requireActiveSubscription,
   component: AppShell,
 })

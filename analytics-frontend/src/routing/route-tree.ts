@@ -11,6 +11,7 @@ import { registerRoute } from "@/routing/routes/register.route"
 import { reportsRoute } from "@/routing/routes/reports.route"
 import { rootRoute } from "@/routing/routes/root.route"
 import { settingsRoute } from "@/routing/routes/settings.route"
+import { subscribeRoute } from "@/routing/routes/subscribe.route"
 
 // Code-based route tree (Part 7 §7.3) rather than the file-based generator —
 // avoids a codegen step in the Vite build and keeps routes inside
@@ -29,5 +30,6 @@ export const routeTree = rootRoute.addChildren([
     ]),
     createPropertyRoute,
     installSnippetRoute,
+    subscribeRoute,
   ]),
 ])

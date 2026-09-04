@@ -14,10 +14,12 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import RazorpaySettings
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, UpstreamError
 from app.integrations.razorpay_client import RazorpayClient
 from app.models.core.subscription import Subscription
 from app.repositories.subscription_repo import GRANTS_ACCESS, SubscriptionRepository
@@ -33,6 +35,8 @@ _TOTAL_COUNT = 100
 # In progress or already granting access — reuse rather than create a second
 # Razorpay subscription for the same workspace.
 _REUSABLE_STATUSES = (*GRANTS_ACCESS, "created", "pending")
+
+logger = structlog.get_logger(__name__)
 
 
 class BillingService:
@@ -68,11 +72,18 @@ class BillingService:
             if existing is not None and existing.status in _REUSABLE_STATUSES:
                 razorpay_subscription_id = existing.razorpay_subscription_id
             else:
-                created = await self._client.create_subscription(
-                    plan_id=self._settings.plan_id,
-                    total_count=_TOTAL_COUNT,
-                    notes={"workspace_id": str(workspace_id)},
-                )
+                try:
+                    created = await self._client.create_subscription(
+                        plan_id=self._settings.plan_id,
+                        total_count=_TOTAL_COUNT,
+                        notes={"workspace_id": str(workspace_id)},
+                    )
+                except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+                    logger.error("razorpay_create_subscription_failed", error=str(exc))
+                    raise UpstreamError(
+                        "Could not start checkout with the payment provider.",
+                        code="razorpay_error",
+                    ) from exc
                 razorpay_subscription_id = created["id"]
                 if existing is None:
                     await self._subscriptions.create(
@@ -122,7 +133,14 @@ class BillingService:
         ):
             raise NotFoundError("Subscription not found.", code="subscription_not_found")
 
-        remote = await self._client.fetch_subscription(razorpay_subscription_id)
+        try:
+            remote = await self._client.fetch_subscription(razorpay_subscription_id)
+        except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+            logger.error("razorpay_fetch_subscription_failed", error=str(exc))
+            raise UpstreamError(
+                "Could not confirm payment with the payment provider.",
+                code="razorpay_error",
+            ) from exc
         async with self._session.begin():
             await self._apply_remote_status(subscription, remote)
         return await self.get_status(account_id)

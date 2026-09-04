@@ -8,4 +8,8 @@ export const STALE_TIME = {
   account: 5 * 60_000,
   properties: 5 * 60_000,
   workspace: 5 * 60_000,
+  // Short: right after a payment, the route guard (routing/guards.ts) needs
+  // this to reflect reality within seconds, not the 5-minute tier account
+  // data gets.
+  billing: 15_000,
 } as const

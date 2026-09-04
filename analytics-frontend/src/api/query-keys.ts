@@ -40,4 +40,8 @@ export const queryKeys = {
     snapshot: (propertyId: number) =>
       [...queryKeys.realtime.all(), "snapshot", propertyId] as const,
   },
+  billing: {
+    all: () => ["billing"] as const,
+    status: () => [...queryKeys.billing.all(), "status"] as const,
+  },
 } as const
