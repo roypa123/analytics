@@ -27,7 +27,8 @@ export function WorkspaceSwitcher() {
     >
       <SelectTrigger className="w-56" size="sm">
         <Building2 className="size-4 text-muted-foreground" />
-        <SelectValue placeholder="Select a workspace" />
+        {/* See PropertySwitcher — SelectValue shows the raw id otherwise. */}
+        <SelectValue placeholder="Select a workspace">{() => workspace?.name}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {workspaces.map((w) => (

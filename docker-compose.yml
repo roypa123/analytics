@@ -1,39 +1,68 @@
-name: analytics
-
+# Three services only, per project setup: Postgres and Redis are already
+# external, so there's nothing to run locally for them.
+#
+# Every value below is `${VAR}` substitution, not `env_file` — this is the
+# same compose file for local dev and for Dokploy: Dokploy injects the
+# variables you set in its UI as real environment variables in the deploy
+# environment, which `${VAR}` picks up directly with no file needed at all.
+# Locally, Compose auto-loads a `.env` sitting next to this file for the same
+# substitution — copy `.env.example` (repo root) to `.env` and fill it in.
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: analytics-postgres
-    restart: unless-stopped
+  analytics-backend:
+    build: ./analytics-backend
     environment:
-      POSTGRES_USER: analytics
-      POSTGRES_PASSWORD: analytics
-      POSTGRES_DB: analytics
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      # `:?` (not just a bare ${VAR}) so a missing value fails `docker compose
+      # up` immediately with a clear message, instead of starting the
+      # container with an empty DSN/secret and failing confusingly later.
+      DATABASE__DSN: ${DATABASE__DSN:?set DATABASE__DSN}
+      DATABASE__SYNC_DSN: ${DATABASE__SYNC_DSN:?set DATABASE__SYNC_DSN}
+      DATABASE__POOL_SIZE: ${DATABASE__POOL_SIZE:-5}
+      REDIS__URL: ${REDIS__URL:?set REDIS__URL}
+      SECURITY__JWT_PRIVATE_KEY: ${SECURITY__JWT_PRIVATE_KEY:?set SECURITY__JWT_PRIVATE_KEY}
+      SECURITY__JWT_PUBLIC_KEY: ${SECURITY__JWT_PUBLIC_KEY:?set SECURITY__JWT_PUBLIC_KEY}
+      SECURITY__ACCESS_TOKEN_TTL_MINUTES: ${SECURITY__ACCESS_TOKEN_TTL_MINUTES:-15}
+      SECURITY__REFRESH_TOKEN_TTL_DAYS: ${SECURITY__REFRESH_TOKEN_TTL_DAYS:-30}
+      SECURITY__VISITOR_HASH_SECRET: ${SECURITY__VISITOR_HASH_SECRET:?set SECURITY__VISITOR_HASH_SECRET}
+      INGESTION__FLUSH_INTERVAL_MS: ${INGESTION__FLUSH_INTERVAL_MS:-500}
+      INGESTION__FLUSH_MAX_ROWS: ${INGESTION__FLUSH_MAX_ROWS:-1000}
+      INGESTION__SESSION_TIMEOUT_MINUTES: ${INGESTION__SESSION_TIMEOUT_MINUTES:-30}
+      ANALYTICS__RAW_EVENT_RETENTION_DAYS: ${ANALYTICS__RAW_EVENT_RETENTION_DAYS:-90}
+      ANALYTICS__RAW_QUERY_RANGE_CAP_DAYS: ${ANALYTICS__RAW_QUERY_RANGE_CAP_DAYS:-7}
+      ANALYTICS__GEOIP_COUNTRY_DB_PATH: ${ANALYTICS__GEOIP_COUNTRY_DB_PATH:-}
+      OBSERVABILITY__LOG_LEVEL: ${OBSERVABILITY__LOG_LEVEL:-INFO}
+      RAZORPAY__KEY_ID: ${RAZORPAY__KEY_ID:-}
+      RAZORPAY__KEY_SECRET: ${RAZORPAY__KEY_SECRET:-}
+      RAZORPAY__WEBHOOK_SECRET: ${RAZORPAY__WEBHOOK_SECRET:-}
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U analytics -d analytics"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    container_name: analytics-redis
+      - "8000:8000" # app.api.main — authenticated API, used by analytics-frontend
+      - "8001:8001" # app.collector.main — public ingest + /tracker.js, used by test-website
     restart: unless-stopped
+
+  analytics-frontend:
+    build: ./analytics-frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      VITE_COLLECTOR_URL: ${VITE_COLLECTOR_URL:-http://localhost:8001}
+      VITE_ENVIRONMENT: ${VITE_ENVIRONMENT:-local}
     ports:
-      - "6379:6379"
+      - "5173:5173"
     volumes:
-      - redis-data:/data
-    command: ["redis-server", "--appendonly", "yes"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - ./analytics-frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - analytics-backend
+    restart: unless-stopped
+
+  test-website:
+    image: nginx:alpine
+    volumes:
+      - ./test-website:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - analytics-backend
+    restart: unless-stopped
 
 volumes:
-  postgres-data:
-  redis-data:
+  frontend_node_modules:

@@ -27,7 +27,11 @@ export function PropertySwitcher() {
     >
       <SelectTrigger className="w-56" size="sm">
         <Globe className="size-4 text-muted-foreground" />
-        <SelectValue placeholder="Select a property" />
+        {/* Base UI's SelectValue renders the raw `value` (the property id)
+            unless told how to map it to a label — it has no way to infer
+            "name" from the compound name+domain content SelectItem renders
+            below. */}
+        <SelectValue placeholder="Select a property">{() => property?.name}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {properties.map((p) => (
