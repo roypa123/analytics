@@ -86,18 +86,22 @@ function PropertyRow({ property, isDeleting, onConfirmDelete }: PropertyRowProps
         <span className="text-xs text-muted-foreground">{property.domain}</span>
       </div>
       <div className="flex items-center gap-1">
-        <Dialog>
-          <DialogTrigger render={<Button variant="ghost" size="sm" />}>Snippet</DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Tracking snippet</DialogTitle>
-              <DialogDescription>
-                Add this to every page of {property.domain}, just before the closing head tag.
-              </DialogDescription>
-            </DialogHeader>
-            <TrackingSnippetBlock trackingId={property.trackingId} />
-          </DialogContent>
-        </Dialog>
+        {/* Part 8 §8.6's property matrix: "View tracking snippet" is
+            admin/analyst only, not viewer. */}
+        {property.myRole !== "viewer" && (
+          <Dialog>
+            <DialogTrigger render={<Button variant="ghost" size="sm" />}>Snippet</DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Tracking snippet</DialogTitle>
+                <DialogDescription>
+                  Add this to every page of {property.domain}, just before the closing head tag.
+                </DialogDescription>
+              </DialogHeader>
+              <TrackingSnippetBlock trackingId={property.trackingId} />
+            </DialogContent>
+          </Dialog>
+        )}
         <AlertDialog>
           <AlertDialogTrigger render={<Button variant="ghost" size="sm" />}>
             Delete

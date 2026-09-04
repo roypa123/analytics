@@ -20,15 +20,23 @@ first one returned. Revisit once an account can belong to more than one
 (Part 8 §8.8 "Adding a teammate," still pending).
 """
 
+from dataclasses import dataclass
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
-from app.core.types import WorkspaceRole
+from app.core.types import PropertyRole, WorkspaceRole
 from app.models.core.property import Property
 from app.repositories.property_repo import PropertyAccessRepository, PropertyRepository
 from app.repositories.workspace_repo import MembershipRepository, WorkspaceRepository
 
 _UNRESTRICTED_ROLES: tuple[WorkspaceRole, ...] = ("owner", "admin")
+
+
+@dataclass(frozen=True)
+class PropertyWithRole:
+    property: Property
+    my_role: PropertyRole
 
 
 class PropertyService:
@@ -53,7 +61,9 @@ class PropertyService:
         assert membership is not None  # workspace_id came from this account's own membership
         return workspace_id, membership.workspace_role  # type: ignore[return-value]
 
-    async def create_for_account(self, *, account_id: int, name: str, domain: str) -> Property:
+    async def create_for_account(
+        self, *, account_id: int, name: str, domain: str
+    ) -> PropertyWithRole:
         async with self._session.begin():
             workspace_id = await self._resolve_workspace_id(account_id)
             prop = await self._properties.create_default(
@@ -62,15 +72,19 @@ class PropertyService:
             await self._property_access.grant(
                 property_id=prop.id, account_id=account_id, role="admin", granted_by=account_id
             )
-            return prop
+            return PropertyWithRole(property=prop, my_role="admin")
 
-    async def list_for_account(self, account_id: int) -> list[Property]:
+    async def list_for_account(self, account_id: int) -> list[PropertyWithRole]:
         workspace_id, role = await self._resolve_membership(account_id)
         properties = await self._properties.list_for_workspace(workspace_id)
         if role in _UNRESTRICTED_ROLES:
-            return properties
+            return [PropertyWithRole(property=p, my_role="admin") for p in properties]
         accessible_ids = await self._property_access.accessible_property_ids(account_id)
-        return [p for p in properties if p.id in accessible_ids]
+        return [
+            PropertyWithRole(property=p, my_role=accessible_ids[p.id])
+            for p in properties
+            if p.id in accessible_ids
+        ]
 
     async def get_owned(self, *, account_id: int, property_id: int) -> Property:
         """Analytics endpoints' authorization check (Part 4 §4.14)."""

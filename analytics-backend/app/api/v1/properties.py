@@ -5,21 +5,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_account, get_write_session
 from app.models.core.account import Account
-from app.models.core.property import Property
 from app.schemas.common import Envelope
 from app.schemas.property import CreatePropertyRequest, PropertySummary
-from app.services.property_service import PropertyService
+from app.services.property_service import PropertyService, PropertyWithRole
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
 
-def _summary(property_: Property) -> PropertySummary:
+def _summary(entry: PropertyWithRole) -> PropertySummary:
     return PropertySummary(
-        id=property_.id,
-        name=property_.name,
-        domain=property_.domain,
-        tracking_id=property_.tracking_id,
-        timezone=property_.timezone,
+        id=entry.property.id,
+        name=entry.property.name,
+        domain=entry.property.domain,
+        tracking_id=entry.property.tracking_id,
+        timezone=entry.property.timezone,
+        my_role=entry.my_role,
     )
 
 
@@ -30,10 +30,10 @@ async def create_property(
     session: AsyncSession = Depends(get_write_session),
 ) -> Envelope[PropertySummary]:
     service = PropertyService(session)
-    property_ = await service.create_for_account(
+    entry = await service.create_for_account(
         account_id=account.id, name=body.name, domain=body.domain
     )
-    return Envelope(data=_summary(property_))
+    return Envelope(data=_summary(entry))
 
 
 @router.get("", response_model=Envelope[list[PropertySummary]])
@@ -42,8 +42,8 @@ async def list_properties(
     session: AsyncSession = Depends(get_write_session),
 ) -> Envelope[list[PropertySummary]]:
     service = PropertyService(session)
-    properties = await service.list_for_account(account.id)
-    return Envelope(data=[_summary(p) for p in properties])
+    entries = await service.list_for_account(account.id)
+    return Envelope(data=[_summary(e) for e in entries])
 
 
 @router.delete("/{property_id}", status_code=204)

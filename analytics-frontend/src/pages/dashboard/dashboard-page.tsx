@@ -314,13 +314,19 @@ export function DashboardPage() {
                     emptyIcon={FileText}
                     emptyTitle="No pageviews yet"
                     emptyDescription={
-                      <Link
-                        to="/onboarding/snippet"
-                        search={{ trackingId: property.trackingId }}
-                        className="underline underline-offset-4"
-                      >
-                        Revisit the install snippet
-                      </Link>
+                      // Part 8 §8.6's property matrix: "View tracking
+                      // snippet" is admin/analyst only — a viewer can see
+                      // this property's data but not the install snippet
+                      // that could point tracking at a different site.
+                      property.myRole !== "viewer" ? (
+                        <Link
+                          to="/onboarding/snippet"
+                          search={{ trackingId: property.trackingId }}
+                          className="underline underline-offset-4"
+                        >
+                          Revisit the install snippet
+                        </Link>
+                      ) : undefined
                     }
                   />
                 </CardContent>

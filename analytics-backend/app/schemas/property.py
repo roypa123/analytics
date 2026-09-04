@@ -3,6 +3,7 @@ properties."""
 
 from pydantic import Field
 
+from app.core.types import PropertyRole
 from app.schemas.common import CamelModel
 
 
@@ -17,3 +18,9 @@ class PropertySummary(CamelModel):
     domain: str
     tracking_id: str
     timezone: str
+    # Part 8 §8.6's property-scoped matrix — "admin" for a workspace
+    # owner/admin (rule 1's elevation) or the account's own `property_access`
+    # grant otherwise. Drives component-level gating (e.g. a viewer can't see
+    # the tracking snippet) the same way `WorkspaceSummary.my_role` does for
+    # workspace-scoped UI.
+    my_role: PropertyRole
