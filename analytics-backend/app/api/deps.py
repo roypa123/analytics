@@ -10,13 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_database
-from app.core.exceptions import AuthenticationError
+from app.core.exceptions import AuthenticationError, NotFoundError, PaymentRequiredError
 from app.core.redis import get_redis
 from app.core.security import decode_access_token
 from app.models.core.account import Account
 from app.models.core.property import Property
 from app.repositories.account_repo import AccountRepository
 from app.repositories.realtime_repo import RealtimeRepository
+from app.repositories.subscription_repo import GRANTS_ACCESS, SubscriptionRepository
+from app.repositories.workspace_repo import WorkspaceRepository
 from app.services.property_service import PropertyService
 
 
@@ -89,3 +91,43 @@ async def get_owned_property(
 
 def get_realtime_repo(settings: Settings = Depends(get_app_settings)) -> RealtimeRepository:
     return RealtimeRepository(get_redis(settings))
+
+
+async def require_active_subscription(
+    account: Account = Depends(get_current_account),
+    session: AsyncSession = Depends(get_write_session),
+) -> None:
+    """Part 12 (revised: no free tier) — coarse gate applied at the router
+    level (app/api/v1/router.py) to every property-scoped route. Resolves
+    "the" workspace the same way `PropertyService` does (org-preferring
+    order, app/repositories/workspace_repo.py's `list_for_account`), since
+    the subscription and the properties it gates both live on that
+    workspace."""
+    workspaces = await WorkspaceRepository(session).list_for_account(account.id)
+    if not workspaces:
+        raise NotFoundError("No workspace found for this account.", code="workspace_not_found")
+
+    subscription = await SubscriptionRepository(session).get_for_workspace(workspaces[0].id)
+    if subscription is None or subscription.status not in GRANTS_ACCESS:
+        raise PaymentRequiredError(
+            "An active subscription is required.", code="subscription_required"
+        )
+
+
+async def require_workspace_subscription(
+    workspace_id: int,
+    session: AsyncSession = Depends(get_write_session),
+) -> None:
+    """Path-parameter-aware sibling of `require_active_subscription`, for
+    `app/api/v1/workspace.py` routes that already take an explicit
+    `workspace_id` — that file's own module docstring explains why every
+    route there resolves the workspace from the path rather than implicitly
+    ("the account's workspace"), after a live bug from doing exactly that.
+    Checking the account's *default* workspace's subscription here would
+    reintroduce the same bug for anyone who belongs to more than one
+    workspace, so this checks the path's workspace_id directly instead."""
+    subscription = await SubscriptionRepository(session).get_for_workspace(workspace_id)
+    if subscription is None or subscription.status not in GRANTS_ACCESS:
+        raise PaymentRequiredError(
+            "An active subscription is required.", code="subscription_required"
+        )

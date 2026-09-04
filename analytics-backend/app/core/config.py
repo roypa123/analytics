@@ -62,6 +62,22 @@ class ObservabilitySettings(BaseSettings):
     log_level: str = "INFO"
 
 
+class RazorpaySettings(BaseSettings):
+    """Part 12 (revised — no free tier): one paid plan, seat count fixed at
+    1 for now (D-22's per-seat quantity is real future work, not built here).
+    `plan_id` is created once via `scripts/razorpay_setup.py` against these
+    same key/secret and then pasted back into `.env` — Razorpay has no
+    "get or create plan by name" call, so this is a one-time manual step,
+    not something the app does on every boot."""
+
+    key_id: str = ""
+    key_secret: str = ""
+    webhook_secret: str = ""
+    plan_id: str = ""
+    plan_name: str = "Nexlytics"
+    plan_amount_paise: int = 99900
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -77,6 +93,7 @@ class Settings(BaseSettings):
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
     analytics: AnalyticsSettings = Field(default_factory=AnalyticsSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
+    razorpay: RazorpaySettings = Field(default_factory=RazorpaySettings)
 
     @model_validator(mode="after")
     def _validate_production_posture(self) -> "Settings":

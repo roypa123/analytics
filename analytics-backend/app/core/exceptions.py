@@ -64,6 +64,17 @@ class QuotaExceededError(AppError):
     status = 402
 
 
+class PaymentRequiredError(AppError):
+    """Part 12 (revised — no free tier). Raised by
+    `require_active_subscription` (app/api/deps.py) when a workspace has no
+    `active`/`authenticated` Razorpay subscription. Distinct from
+    `QuotaExceededError`, which is a *paying* workspace over its plan's
+    limits — this is "never paid at all.\""""
+
+    code = "subscription_required"
+    status = 402
+
+
 class UpstreamError(AppError):
     code = "upstream_error"
     status = 502

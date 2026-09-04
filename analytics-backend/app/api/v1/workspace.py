@@ -9,7 +9,12 @@ workspace" implicitly).
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_app_settings, get_current_account, get_write_session
+from app.api.deps import (
+    get_app_settings,
+    get_current_account,
+    get_write_session,
+    require_workspace_subscription,
+)
 from app.core.config import Settings
 from app.models.core.account import Account
 from app.schemas.common import Envelope
@@ -64,7 +69,11 @@ async def get_workspace(
     return Envelope(data=summary)
 
 
-@router.patch("/{workspace_id}", response_model=Envelope[WorkspaceSummary])
+@router.patch(
+    "/{workspace_id}",
+    response_model=Envelope[WorkspaceSummary],
+    dependencies=[Depends(require_workspace_subscription)],
+)
 async def update_workspace(
     workspace_id: int,
     body: UpdateWorkspaceRequest,
@@ -78,7 +87,11 @@ async def update_workspace(
     return Envelope(data=summary)
 
 
-@router.get("/{workspace_id}/members", response_model=Envelope[list[MemberSummary]])
+@router.get(
+    "/{workspace_id}/members",
+    response_model=Envelope[list[MemberSummary]],
+    dependencies=[Depends(require_workspace_subscription)],
+)
 async def list_members(
     workspace_id: int,
     account: Account = Depends(get_current_account),
@@ -89,7 +102,11 @@ async def list_members(
     return Envelope(data=members)
 
 
-@router.patch("/{workspace_id}/members/{target_account_id}", response_model=Envelope[MemberSummary])
+@router.patch(
+    "/{workspace_id}/members/{target_account_id}",
+    response_model=Envelope[MemberSummary],
+    dependencies=[Depends(require_workspace_subscription)],
+)
 async def update_member_role(
     workspace_id: int,
     target_account_id: int,
@@ -104,7 +121,11 @@ async def update_member_role(
     return Envelope(data=member)
 
 
-@router.delete("/{workspace_id}/members/{target_account_id}", status_code=204)
+@router.delete(
+    "/{workspace_id}/members/{target_account_id}",
+    status_code=204,
+    dependencies=[Depends(require_workspace_subscription)],
+)
 async def remove_member(
     workspace_id: int,
     target_account_id: int,
@@ -117,7 +138,11 @@ async def remove_member(
     )
 
 
-@router.get("/{workspace_id}/invitations", response_model=Envelope[list[InvitationSummary]])
+@router.get(
+    "/{workspace_id}/invitations",
+    response_model=Envelope[list[InvitationSummary]],
+    dependencies=[Depends(require_workspace_subscription)],
+)
 async def list_invitations(
     workspace_id: int,
     account: Account = Depends(get_current_account),
@@ -129,7 +154,10 @@ async def list_invitations(
 
 
 @router.post(
-    "/{workspace_id}/invitations", response_model=Envelope[CreatedInvitation], status_code=201
+    "/{workspace_id}/invitations",
+    response_model=Envelope[CreatedInvitation],
+    status_code=201,
+    dependencies=[Depends(require_workspace_subscription)],
 )
 async def invite_member(
     workspace_id: int,
@@ -148,7 +176,11 @@ async def invite_member(
     return Envelope(data=created)
 
 
-@router.delete("/{workspace_id}/invitations/{invitation_id}", status_code=204)
+@router.delete(
+    "/{workspace_id}/invitations/{invitation_id}",
+    status_code=204,
+    dependencies=[Depends(require_workspace_subscription)],
+)
 async def revoke_invitation(
     workspace_id: int,
     invitation_id: int,

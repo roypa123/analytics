@@ -18,6 +18,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10",
     "maxminddb>=2.6",
     "httpx>=0.28",
+    "truststore>=0.10",
     "ua-parser>=1.0",
     "structlog>=24.4",
     "prometheus-client>=0.21",
