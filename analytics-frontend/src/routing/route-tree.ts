@@ -27,9 +27,9 @@ export const routeTree = rootRoute.addChildren([
       realtimeRoute,
       profileRoute,
       settingsRoute,
+      subscribeRoute,
     ]),
     createPropertyRoute,
     installSnippetRoute,
-    subscribeRoute,
   ]),
 ])

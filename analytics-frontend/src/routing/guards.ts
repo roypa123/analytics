@@ -26,12 +26,15 @@ export function requireAuth({
   }
 }
 
-// Part 12 (revised: no free tier) — on `appShellRoute` (Dashboard, Reports,
-// Realtime, Settings, Profile) and the onboarding property-creation routes,
-// which the backend also gates (app/api/deps.py's `require_active_subscription`
-// blocks property creation outright). Without this, those pages would render
-// and then silently fail every request instead of sending the user
-// somewhere they can actually do something about it.
+// Part 12 (revised: no free tier) — applied per-route on Dashboard, Reports,
+// Realtime, Settings, and the onboarding property-creation routes, which the
+// backend also gates (app/api/deps.py's `require_active_subscription` blocks
+// property creation outright). Deliberately NOT on `appShellRoute` itself:
+// the shell (and its sidebar's Billing link) must always render for an
+// authenticated account so an unpaid one can still reach Billing — only the
+// data pages the backend actually 402s redirect away. Without this, those
+// pages would render and then silently fail every request instead of
+// sending the user somewhere they can actually do something about it.
 //
 // Uses `queryClient` directly rather than router context (unlike
 // `requireAuth`'s `context.auth`) because this needs a real network call,

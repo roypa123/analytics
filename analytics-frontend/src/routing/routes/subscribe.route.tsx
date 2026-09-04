@@ -1,14 +1,17 @@
 import { createRoute } from "@tanstack/react-router"
 
 import { SubscribePage } from "@/pages/billing/subscribe-page"
-import { appRoute } from "@/routing/routes/app.route"
+import { appShellRoute } from "@/routing/routes/app-shell.route"
 
-// Part 12 (revised: no free tier) — deliberately a sibling of `appShellRoute`
-// under `appRoute`, not a child of it: it must stay reachable when
-// `requireActiveSubscription` (routing/guards.ts) redirects here, so it only
-// inherits `requireAuth`, never the subscription guard itself.
+// Part 12 (revised: no free tier) — a child of `appShellRoute` so Billing
+// renders inside the normal sidebar layout (linked from `AppSidebar`)
+// instead of a bare full-page redirect target. It carries no
+// `requireActiveSubscription` beforeLoad of its own — it's the one place an
+// unpaid account must always be able to reach — while `appShellRoute` itself
+// also stays ungated so the sidebar (and this link) render regardless of
+// subscription status.
 export const subscribeRoute = createRoute({
-  getParentRoute: () => appRoute,
+  getParentRoute: () => appShellRoute,
   path: "/subscribe",
   component: SubscribePage,
 })

@@ -1,24 +1,24 @@
-import { useNavigate } from "@tanstack/react-router"
 import { motion } from "framer-motion"
+import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { isApiError } from "@/api/errors"
-import { Logo } from "@/components/illustrations/logo"
 import { useConfirmCheckout } from "@/hooks/mutations/use-confirm-checkout"
 import { useStartSubscription } from "@/hooks/mutations/use-start-subscription"
 import { useSubscriptionStatus } from "@/hooks/queries/use-subscription-status"
 import { loadRazorpayCheckout } from "@/lib/razorpay"
-import { fadeUp } from "@/lib/motion"
+import { fadeUp, staggerContainer } from "@/lib/motion"
 
 type Stage = "idle" | "opening" | "confirming"
 
-// Part 12 (revised: no free tier) — every workspace needs an active Razorpay
-// subscription before it can reach anything else; `routing/guards.ts`'s
-// `requireActiveSubscription` sends every blocked route here. Full-page like
-// the onboarding wizard, not inside the app shell — there's nothing to put
-// in a sidebar until this succeeds.
+// Part 12 (revised: no free tier) — every other data route redirects an
+// unpaid account here (`routing/guards.ts`'s `requireActiveSubscription`),
+// but this page itself lives inside the normal app shell (linked from
+// `AppSidebar`'s Billing item) rather than full-page like the onboarding
+// wizard — the sidebar must stay reachable so an unpaid account can always
+// get back here, not just on first redirect.
 export function SubscribePage() {
   const navigate = useNavigate()
   const { data: status } = useSubscriptionStatus()
@@ -78,36 +78,51 @@ export function SubscribePage() {
   const hasError = isApiError(startSubscription.error) || isApiError(confirmCheckout.error)
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-16">
-      <motion.div initial="hidden" animate="show" variants={fadeUp} className="w-full max-w-sm">
-        <div className="mb-8 flex justify-center">
-          <Logo />
-        </div>
-        <Card className="w-full">
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={staggerContainer}
+      className="flex flex-col gap-6 p-6"
+    >
+      <motion.div variants={fadeUp}>
+        <h1 className="text-xl font-semibold">Billing</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage your Nexlytics subscription.
+        </p>
+      </motion.div>
+
+      <motion.div variants={fadeUp} className="max-w-md">
+        <Card>
           <CardHeader>
-            <CardTitle>Subscribe to continue</CardTitle>
+            <CardTitle>
+              {status?.hasAccess ? "Subscription active" : "Subscribe to continue"}
+            </CardTitle>
             <CardDescription>
-              {status?.status === "pending" || status?.status === "halted"
-                ? "Your last payment didn't go through — try again to restore access."
-                : "An active subscription is required to use Nexlytics."}
+              {status?.hasAccess
+                ? "Your workspace has an active subscription."
+                : status?.status === "pending" || status?.status === "halted"
+                  ? "Your last payment didn't go through — try again to restore access."
+                  : "An active subscription is required to use the rest of Nexlytics."}
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {hasError && (
-              <p className="text-sm text-destructive">
-                Something went wrong starting checkout. Please try again.
-              </p>
-            )}
-            <Button type="button" className="w-full" disabled={isBusy} onClick={onSubscribe}>
-              {stage === "confirming"
-                ? "Confirming payment…"
-                : stage === "opening"
-                  ? "Opening checkout…"
-                  : "Subscribe"}
-            </Button>
-          </CardContent>
+          {!status?.hasAccess && (
+            <CardContent className="flex flex-col gap-4">
+              {hasError && (
+                <p className="text-sm text-destructive">
+                  Something went wrong starting checkout. Please try again.
+                </p>
+              )}
+              <Button type="button" className="w-full sm:w-auto" disabled={isBusy} onClick={onSubscribe}>
+                {stage === "confirming"
+                  ? "Confirming payment…"
+                  : stage === "opening"
+                    ? "Opening checkout…"
+                    : "Subscribe"}
+              </Button>
+            </CardContent>
+          )}
         </Card>
       </motion.div>
-    </div>
+    </motion.div>
   )
 }

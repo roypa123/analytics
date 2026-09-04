@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router"
-import { Activity, BarChart3, LayoutDashboard, Settings } from "lucide-react"
+import { Activity, BarChart3, CreditCard, LayoutDashboard, Settings } from "lucide-react"
 
 import {
   Sidebar,
@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { label: "Reports", icon: BarChart3, enabled: true, to: "/reports" },
   { label: "Realtime", icon: Activity, enabled: true, to: "/realtime" },
   { label: "Settings", icon: Settings, enabled: true, to: "/settings" },
+  { label: "Billing", icon: CreditCard, enabled: true, to: "/subscribe" },
 ] as const
 
 export function AppSidebar() {
