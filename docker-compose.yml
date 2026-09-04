@@ -34,6 +34,7 @@ services:
       RAZORPAY__KEY_ID: ${RAZORPAY__KEY_ID:-}
       RAZORPAY__KEY_SECRET: ${RAZORPAY__KEY_SECRET:-}
       RAZORPAY__WEBHOOK_SECRET: ${RAZORPAY__WEBHOOK_SECRET:-}
+      CORS__ALLOWED_ORIGINS: ${CORS__ALLOWED_ORIGINS:-}
     ports:
       - "8000:8000" # app.api.main — authenticated API, used by analytics-frontend
       - "8001:8001" # app.collector.main — public ingest + /tracker.js, used by test-website

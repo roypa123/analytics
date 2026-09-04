@@ -62,6 +62,21 @@ class ObservabilitySettings(BaseSettings):
     log_level: str = "INFO"
 
 
+class CorsSettings(BaseSettings):
+    """Additional origins allowed to call the authenticated API
+    (app/api/main.py), on top of the always-allowed `http://localhost:5173`
+    local-dev origin (never added in production). A plain comma-separated
+    string rather than `list[str]` — pydantic-settings would otherwise expect
+    a JSON array literal in the env var, which is an awkward thing to hand-type
+    into a Dokploy/compose environment-variables field."""
+
+    allowed_origins: str = ""
+
+    @property
+    def origins(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+
 class RazorpaySettings(BaseSettings):
     """Part 12 (revised again — Orders, not Subscriptions): this account's
     Test Mode Subscriptions product 401s on every call regardless of key
@@ -96,6 +111,7 @@ class Settings(BaseSettings):
     analytics: AnalyticsSettings = Field(default_factory=AnalyticsSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     razorpay: RazorpaySettings = Field(default_factory=RazorpaySettings)
+    cors: CorsSettings = Field(default_factory=CorsSettings)
 
     @model_validator(mode="after")
     def _validate_production_posture(self) -> "Settings":

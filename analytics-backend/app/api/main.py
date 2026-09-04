@@ -26,10 +26,17 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Analytics API", version="0.1.0", lifespan=lifespan)
 
+    # localhost:5173 is always allowed outside production for local dev
+    # convenience; anything beyond that (a deployed frontend's real origin —
+    # a VPS IP, a real domain) must be listed explicitly via
+    # CORS__ALLOWED_ORIGINS, since the browser enforces this regardless of
+    # environment and there's no way to guess a deployment's origin in code.
+    local_dev_origin = [] if settings.environment == "production" else ["http://localhost:5173"]
+
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[] if settings.environment == "production" else ["http://localhost:5173"],
+        allow_origins=[*local_dev_origin, *settings.cors.origins],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
