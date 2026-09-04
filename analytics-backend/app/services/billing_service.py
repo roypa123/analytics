@@ -114,22 +114,28 @@ class BillingService:
         payment straight from Razorpay and reflect it immediately rather than
         making the user wait for the webhook. The webhook (`handle_webhook`
         below) remains authoritative for every confirmation this endpoint
-        never sees (tab closed mid-flow, etc.)."""
-        workspace_id = await self._resolve_workspace_id(account_id)
-        subscription = await self._subscriptions.get_for_workspace(workspace_id)
-        if subscription is None or subscription.razorpay_order_id != razorpay_order_id:
-            raise NotFoundError("Order not found.", code="order_not_found")
+        never sees (tab closed mid-flow, etc.).
 
-        try:
-            payment = await self._client.fetch_payment(razorpay_payment_id)
-        except (httpx.HTTPStatusError, httpx.TransportError) as exc:
-            logger.error("razorpay_fetch_payment_failed", error=str(exc))
-            raise UpstreamError(
-                "Could not confirm payment with the payment provider.",
-                code="razorpay_error",
-            ) from exc
-
+        Everything DB-touching stays inside one `session.begin()` block
+        (matching `start_checkout`'s structure) — a bare `await` on the
+        session outside of one auto-begins a transaction that then collides
+        with an explicit `begin()` opened later ("A transaction is already
+        begun on this Session")."""
         async with self._session.begin():
+            workspace_id = await self._resolve_workspace_id(account_id)
+            subscription = await self._subscriptions.get_for_workspace(workspace_id)
+            if subscription is None or subscription.razorpay_order_id != razorpay_order_id:
+                raise NotFoundError("Order not found.", code="order_not_found")
+
+            try:
+                payment = await self._client.fetch_payment(razorpay_payment_id)
+            except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+                logger.error("razorpay_fetch_payment_failed", error=str(exc))
+                raise UpstreamError(
+                    "Could not confirm payment with the payment provider.",
+                    code="razorpay_error",
+                ) from exc
+
             await self._apply_captured_payment(subscription, payment)
         return await self.get_status(account_id)
 

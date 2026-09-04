@@ -81,7 +81,8 @@ export function SubscribePage() {
   }
 
   const isBusy = stage !== "idle"
-  const hasError = isApiError(startCheckout.error) || isApiError(confirmCheckout.error)
+  const startError = isApiError(startCheckout.error)
+  const confirmError = isApiError(confirmCheckout.error)
 
   return (
     <motion.div
@@ -113,9 +114,15 @@ export function SubscribePage() {
           </CardHeader>
           {!status?.hasAccess && (
             <CardContent className="flex flex-col gap-4">
-              {hasError && (
+              {startError && (
                 <p className="text-sm text-destructive">
                   Something went wrong starting checkout. Please try again.
+                </p>
+              )}
+              {confirmError && (
+                <p className="text-sm text-destructive">
+                  Your payment went through, but we couldn't confirm it. It should catch up
+                  automatically shortly — if not, try subscribing again.
                 </p>
               )}
               <Button type="button" className="w-full sm:w-auto" disabled={isBusy} onClick={onSubscribe}>
