@@ -1,4 +1,18 @@
-"""Part 12 (revised) — a thin async wrapper over Razorpay's REST API.
+"""Part 12 (revised again) — a thin async wrapper over Razorpay's REST API.
+
+Built on the Orders + Payments API, not Subscriptions: this account's Test
+Mode Subscriptions product returns 401 on every call (`/v1/plans`,
+`/v1/subscriptions`) even with valid keys and a dashboard-created plan,
+while Orders/Payments authenticate fine with the same keys — confirmed by
+direct comparison (`curl` against `/v1/payments` succeeds, `/v1/plans` on
+the identical key does not), and the dashboard itself refuses to create a
+Plan in Test Mode ("something went wrong") while succeeding in Live Mode.
+That points at a Test Mode account-side gap in Subscriptions, not anything
+fixable in this codebase. Orders is a one-time-payment-per-billing-period
+model instead of Razorpay auto-recurring: `BillingService` grants access for
+`billing_period_days` from a captured payment and expects the customer back
+for a fresh checkout once that period lapses, rather than Razorpay silently
+re-charging a saved mandate.
 
 No async SDK exists for Razorpay (the official `razorpay` package wraps
 `requests`, which blocks the event loop), so this mirrors `app/utils/geoip.py`'s
@@ -43,51 +57,32 @@ class RazorpayClient:
         self._webhook_secret = settings.webhook_secret
         self._key_secret = settings.key_secret
 
-    async def create_plan(
-        self, *, name: str, amount_paise: int, currency: str = "INR"
+    async def create_order(
+        self, *, amount_paise: int, currency: str, receipt: str, notes: dict[str, str]
     ) -> dict[str, Any]:
-        """One-time setup call (scripts/razorpay_setup.py), not something the
-        app calls at request time — Razorpay has no "get or create" for
-        plans, so re-running this creates a duplicate plan rather than
-        reusing one."""
+        """One order per billing-period checkout attempt — Razorpay Orders
+        are single-use, so a renewal creates a new one rather than reusing
+        the previous period's."""
         async with httpx.AsyncClient(
             base_url=_BASE_URL, auth=self._auth, timeout=_TIMEOUT_SECONDS, verify=_ssl_context()
         ) as client:
             response = await client.post(
-                "/plans",
+                "/orders",
                 json={
-                    "period": "monthly",
-                    "interval": 1,
-                    "item": {"name": name, "amount": amount_paise, "currency": currency},
-                },
-            )
-            response.raise_for_status()
-            return dict(response.json())
-
-    async def create_subscription(
-        self, *, plan_id: str, total_count: int, notes: dict[str, str]
-    ) -> dict[str, Any]:
-        async with httpx.AsyncClient(
-            base_url=_BASE_URL, auth=self._auth, timeout=_TIMEOUT_SECONDS, verify=_ssl_context()
-        ) as client:
-            response = await client.post(
-                "/subscriptions",
-                json={
-                    "plan_id": plan_id,
-                    "total_count": total_count,
-                    "quantity": 1,
-                    "customer_notify": True,
+                    "amount": amount_paise,
+                    "currency": currency,
+                    "receipt": receipt,
                     "notes": notes,
                 },
             )
             response.raise_for_status()
             return dict(response.json())
 
-    async def fetch_subscription(self, razorpay_subscription_id: str) -> dict[str, Any]:
+    async def fetch_payment(self, razorpay_payment_id: str) -> dict[str, Any]:
         async with httpx.AsyncClient(
             base_url=_BASE_URL, auth=self._auth, timeout=_TIMEOUT_SECONDS, verify=_ssl_context()
         ) as client:
-            response = await client.get(f"/subscriptions/{razorpay_subscription_id}")
+            response = await client.get(f"/payments/{razorpay_payment_id}")
             response.raise_for_status()
             return dict(response.json())
 
@@ -101,13 +96,15 @@ class RazorpayClient:
         return hmac.compare_digest(expected, signature)
 
     def verify_checkout_signature(
-        self, *, razorpay_payment_id: str, razorpay_subscription_id: str, signature: str
+        self, *, razorpay_order_id: str, razorpay_payment_id: str, signature: str
     ) -> bool:
         """The signature Razorpay Checkout hands the browser on success — a
-        provisional, client-reported confirmation (Part 12 §12.7). Verified
-        here so the frontend can show "payment received" immediately, but the
-        webhook remains the source of truth for `status`, since a checkout
-        callback can be spoofed or simply never fire (tab closed mid-flow)."""
-        payload = f"{razorpay_payment_id}|{razorpay_subscription_id}".encode()
+        provisional, client-reported confirmation. Verified here so the
+        frontend can show "payment received" immediately, but the webhook
+        remains the source of truth for `status`, since a checkout callback
+        can be spoofed or simply never fire (tab closed mid-flow). Order of
+        concatenation is `order_id|payment_id` — Razorpay's documented
+        formula for Orders Checkout, distinct from the Subscriptions one."""
+        payload = f"{razorpay_order_id}|{razorpay_payment_id}".encode()
         expected = hmac.new(self._key_secret.encode(), payload, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)

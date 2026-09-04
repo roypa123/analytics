@@ -63,19 +63,21 @@ class ObservabilitySettings(BaseSettings):
 
 
 class RazorpaySettings(BaseSettings):
-    """Part 12 (revised — no free tier): one paid plan, seat count fixed at
-    1 for now (D-22's per-seat quantity is real future work, not built here).
-    `plan_id` is created once via `scripts/razorpay_setup.py` against these
-    same key/secret and then pasted back into `.env` — Razorpay has no
-    "get or create plan by name" call, so this is a one-time manual step,
-    not something the app does on every boot."""
+    """Part 12 (revised again — Orders, not Subscriptions): this account's
+    Test Mode Subscriptions product 401s on every call regardless of key
+    validity (confirmed: the same key succeeds against Orders/Payments), so
+    billing is built on a one-time Order per billing period instead of a
+    Razorpay-managed recurring mandate. `billing_period_days` is how long a
+    single captured payment grants access for; there is no `plan_id` because
+    Orders carry their own amount/currency per call rather than referencing
+    a pre-created Plan resource."""
 
     key_id: str = ""
     key_secret: str = ""
     webhook_secret: str = ""
-    plan_id: str = ""
     plan_name: str = "Nexlytics"
     plan_amount_paise: int = 99900
+    billing_period_days: int = 30
 
 
 class Settings(BaseSettings):

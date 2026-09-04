@@ -1,15 +1,23 @@
-"""Part 12 (revised) — `core.subscriptions`."""
+"""Part 12 (revised again: Orders, not Subscriptions) — `core.subscriptions`."""
+
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.core.subscription import Subscription
 
-# Part 12 §12.7 — a customer who just finished Razorpay Checkout has an
-# "authenticated" mandate but hasn't necessarily had the first charge settle
-# yet; granting access only on "active" makes a successful payment look like
-# nothing happened until the webhook catches up.
-GRANTS_ACCESS = ("authenticated", "active")
+
+def grants_access(subscription: Subscription | None) -> bool:
+    """A captured payment only grants access for `billing_period_days` from
+    when it was confirmed — unlike Razorpay Subscriptions, nothing calls us
+    back when that period lapses, so this is re-evaluated at request time
+    rather than trusted from `status` alone."""
+    if subscription is None or subscription.status != "active":
+        return False
+    if subscription.current_period_end is None:
+        return False
+    return subscription.current_period_end > datetime.now(UTC)
 
 
 class SubscriptionRepository:
@@ -21,26 +29,25 @@ class SubscriptionRepository:
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def get_by_razorpay_id(self, razorpay_subscription_id: str) -> Subscription | None:
-        stmt = select(Subscription).where(
-            Subscription.razorpay_subscription_id == razorpay_subscription_id
-        )
+    async def get_by_order_id(self, razorpay_order_id: str) -> Subscription | None:
+        stmt = select(Subscription).where(Subscription.razorpay_order_id == razorpay_order_id)
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def create(
-        self, *, workspace_id: int, razorpay_plan_id: str, razorpay_subscription_id: str
-    ) -> Subscription:
+    async def create(self, *, workspace_id: int, razorpay_order_id: str) -> Subscription:
         subscription = Subscription(
             workspace_id=workspace_id,
-            razorpay_plan_id=razorpay_plan_id,
-            razorpay_subscription_id=razorpay_subscription_id,
-            status="created",
+            razorpay_order_id=razorpay_order_id,
+            status="pending",
         )
         self._session.add(subscription)
         await self._session.flush()
         return subscription
 
-    async def update_status(self, subscription: Subscription, *, status: str) -> None:
-        subscription.status = status
+    async def mark_paid(
+        self, subscription: Subscription, *, razorpay_payment_id: str, period_end: datetime
+    ) -> None:
+        subscription.razorpay_payment_id = razorpay_payment_id
+        subscription.status = "active"
+        subscription.current_period_end = period_end
         await self._session.flush()

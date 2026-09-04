@@ -2,7 +2,7 @@ import { client } from "@/api/client"
 import { paths } from "@/endpoints/paths"
 import type {
   ConfirmCheckoutRequest,
-  StartSubscriptionResponse,
+  StartCheckoutResponse,
   SubscriptionStatus,
 } from "@/types/api/billing"
 
@@ -17,8 +17,8 @@ export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
   return res.data.data
 }
 
-export async function startSubscription(): Promise<StartSubscriptionResponse> {
-  const res = await client.post<Envelope<StartSubscriptionResponse>>(paths.billing.subscribe)
+export async function startCheckout(): Promise<StartCheckoutResponse> {
+  const res = await client.post<Envelope<StartCheckoutResponse>>(paths.billing.subscribe)
   return res.data.data
 }
 

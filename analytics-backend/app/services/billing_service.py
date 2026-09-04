@@ -1,17 +1,19 @@
-"""Part 12 (revised: no free tier) — gates access on a Razorpay subscription
-rather than tracking a plan tier for later enforcement.
+"""Part 12 (revised again: Orders, not Subscriptions) — gates access on a
+captured Razorpay payment rather than a Razorpay-managed recurring mandate.
 
-Deliberately smaller than Part 12's full documented design: one plan, seat
-quantity fixed at 1 (D-22's per-seat pricing is real future work), no GST
-handling (A-11, needs a qualified accountant before launch), no
-`billing_operations` idempotency table (§12.9) — a retried `start_subscription`
-call is instead made safe by the workspace/subscription 1:1 UNIQUE constraint
-and the "reuse if already in progress" check below, which covers the common
-double-click case without the full ledger.
+This account's Test Mode Subscriptions product returns 401 on every call
+regardless of key validity — confirmed by the same key succeeding against
+Orders/Payments, and by the dashboard itself refusing to create a Plan in
+Test Mode while succeeding in Live Mode. Since Live Mode means real charges
+and isn't appropriate for building/testing this integration, billing is
+built on one Razorpay Order per billing period instead: a captured payment
+grants `RazorpaySettings.billing_period_days` of access, and the customer
+returns for a fresh checkout once that period lapses rather than Razorpay
+silently re-charging a saved mandate.
 """
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -22,19 +24,9 @@ from app.core.config import RazorpaySettings
 from app.core.exceptions import NotFoundError, UpstreamError
 from app.integrations.razorpay_client import RazorpayClient
 from app.models.core.subscription import Subscription
-from app.repositories.subscription_repo import GRANTS_ACCESS, SubscriptionRepository
+from app.repositories.subscription_repo import SubscriptionRepository, grants_access
 from app.repositories.workspace_repo import WorkspaceRepository
-from app.schemas.billing import StartSubscriptionResponse, SubscriptionStatusResponse
-
-# Razorpay subscriptions require a fixed number of billing cycles up front,
-# not an open-ended "until cancelled." 100 monthly cycles (~8 years) is a
-# pragmatic stand-in for "indefinite" — renewing before this runs out is
-# real, currently-unbuilt future work (Part 12 §12.7's lifecycle handling).
-_TOTAL_COUNT = 100
-
-# In progress or already granting access — reuse rather than create a second
-# Razorpay subscription for the same workspace.
-_REUSABLE_STATUSES = (*GRANTS_ACCESS, "created", "pending")
+from app.schemas.billing import StartCheckoutResponse, SubscriptionStatusResponse
 
 logger = structlog.get_logger(__name__)
 
@@ -62,112 +54,118 @@ class BillingService:
         workspace_id = await self._resolve_workspace_id(account_id)
         subscription = await self._subscriptions.get_for_workspace(workspace_id)
         status = subscription.status if subscription is not None else None
-        return SubscriptionStatusResponse(status=status, has_access=status in GRANTS_ACCESS)
+        return SubscriptionStatusResponse(
+            status=status, has_access=grants_access(subscription)
+        )
 
-    async def start_subscription(self, account_id: int) -> StartSubscriptionResponse:
+    async def start_checkout(self, account_id: int) -> StartCheckoutResponse:
         async with self._session.begin():
             workspace_id = await self._resolve_workspace_id(account_id)
             existing = await self._subscriptions.get_for_workspace(workspace_id)
 
-            if existing is not None and existing.status in _REUSABLE_STATUSES:
-                razorpay_subscription_id = existing.razorpay_subscription_id
-            else:
-                try:
-                    created = await self._client.create_subscription(
-                        plan_id=self._settings.plan_id,
-                        total_count=_TOTAL_COUNT,
-                        notes={"workspace_id": str(workspace_id)},
-                    )
-                except (httpx.HTTPStatusError, httpx.TransportError) as exc:
-                    logger.error("razorpay_create_subscription_failed", error=str(exc))
-                    raise UpstreamError(
-                        "Could not start checkout with the payment provider.",
-                        code="razorpay_error",
-                    ) from exc
-                razorpay_subscription_id = created["id"]
-                if existing is None:
-                    await self._subscriptions.create(
-                        workspace_id=workspace_id,
-                        razorpay_plan_id=self._settings.plan_id,
-                        razorpay_subscription_id=razorpay_subscription_id,
-                    )
-                else:
-                    # A previously cancelled/completed/halted subscription —
-                    # the UNIQUE(workspace_id) constraint means this row is
-                    # replaced in place rather than a second one inserted.
-                    existing.razorpay_plan_id = self._settings.plan_id
-                    existing.razorpay_subscription_id = razorpay_subscription_id
-                    existing.status = created.get("status", "created")
-                    await self._session.flush()
+            try:
+                created = await self._client.create_order(
+                    amount_paise=self._settings.plan_amount_paise,
+                    currency="INR",
+                    receipt=f"workspace-{workspace_id}-{int(datetime.now(UTC).timestamp())}",
+                    notes={"workspace_id": str(workspace_id)},
+                )
+            except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+                logger.error("razorpay_create_order_failed", error=str(exc))
+                raise UpstreamError(
+                    "Could not start checkout with the payment provider.",
+                    code="razorpay_error",
+                ) from exc
+            razorpay_order_id = created["id"]
 
-            return StartSubscriptionResponse(
+            if existing is None:
+                await self._subscriptions.create(
+                    workspace_id=workspace_id, razorpay_order_id=razorpay_order_id
+                )
+            else:
+                # UNIQUE(workspace_id) means this row is replaced in place —
+                # each checkout attempt (first payment or renewal) gets its
+                # own fresh Order rather than reusing a stale one.
+                existing.razorpay_order_id = razorpay_order_id
+                existing.status = "pending"
+                await self._session.flush()
+
+            return StartCheckoutResponse(
                 razorpay_key_id=self._settings.key_id,
-                razorpay_subscription_id=razorpay_subscription_id,
+                razorpay_order_id=razorpay_order_id,
                 plan_name=self._settings.plan_name,
                 amount_paise=self._settings.plan_amount_paise,
                 currency="INR",
             )
 
     def verify_checkout_signature(
-        self, *, razorpay_payment_id: str, razorpay_subscription_id: str, signature: str
+        self, *, razorpay_order_id: str, razorpay_payment_id: str, signature: str
     ) -> bool:
         return self._client.verify_checkout_signature(
+            razorpay_order_id=razorpay_order_id,
             razorpay_payment_id=razorpay_payment_id,
-            razorpay_subscription_id=razorpay_subscription_id,
             signature=signature,
         )
 
     async def confirm_checkout(
-        self, account_id: int, *, razorpay_payment_id: str, razorpay_subscription_id: str
+        self, account_id: int, *, razorpay_order_id: str, razorpay_payment_id: str
     ) -> SubscriptionStatusResponse:
-        """Optimistic path (Part 12 §12.7): the browser just completed
-        Checkout, so fetch the subscription straight from Razorpay and
-        reflect it immediately rather than making the user wait for the
-        webhook. The webhook (`handle_webhook` below) remains authoritative
-        for every status change after this point, including ones this
-        endpoint never sees."""
+        """Optimistic path: the browser just completed Checkout, so fetch the
+        payment straight from Razorpay and reflect it immediately rather than
+        making the user wait for the webhook. The webhook (`handle_webhook`
+        below) remains authoritative for every confirmation this endpoint
+        never sees (tab closed mid-flow, etc.)."""
         workspace_id = await self._resolve_workspace_id(account_id)
         subscription = await self._subscriptions.get_for_workspace(workspace_id)
-        if subscription is None or subscription.razorpay_subscription_id != (
-            razorpay_subscription_id
-        ):
-            raise NotFoundError("Subscription not found.", code="subscription_not_found")
+        if subscription is None or subscription.razorpay_order_id != razorpay_order_id:
+            raise NotFoundError("Order not found.", code="order_not_found")
 
         try:
-            remote = await self._client.fetch_subscription(razorpay_subscription_id)
+            payment = await self._client.fetch_payment(razorpay_payment_id)
         except (httpx.HTTPStatusError, httpx.TransportError) as exc:
-            logger.error("razorpay_fetch_subscription_failed", error=str(exc))
+            logger.error("razorpay_fetch_payment_failed", error=str(exc))
             raise UpstreamError(
                 "Could not confirm payment with the payment provider.",
                 code="razorpay_error",
             ) from exc
+
         async with self._session.begin():
-            await self._apply_remote_status(subscription, remote)
+            await self._apply_captured_payment(subscription, payment)
         return await self.get_status(account_id)
 
     async def handle_webhook(self, *, raw_body: bytes, signature: str) -> None:
         if not self._client.verify_webhook_signature(raw_body=raw_body, signature=signature):
-            # Part 2 §2.5-style posture applied to webhooks: an unverifiable
-            # request is silently ignored, not surfaced as an error a replay
-            # could use to probe for the right signature.
+            # An unverifiable request is silently ignored, not surfaced as an
+            # error a replay could use to probe for the right signature.
             return
 
         payload = json.loads(raw_body)
-        entity = payload.get("payload", {}).get("subscription", {}).get("entity")
-        if not isinstance(entity, dict) or "id" not in entity:
+        if payload.get("event") != "payment.captured":
+            return
+        entity = payload.get("payload", {}).get("payment", {}).get("entity")
+        if not isinstance(entity, dict) or "order_id" not in entity:
             return
 
         async with self._session.begin():
-            subscription = await self._subscriptions.get_by_razorpay_id(entity["id"])
+            subscription = await self._subscriptions.get_by_order_id(entity["order_id"])
             if subscription is None:
                 return
-            await self._apply_remote_status(subscription, entity)
+            await self._apply_captured_payment(subscription, entity)
 
-    async def _apply_remote_status(
-        self, subscription: Subscription, remote: dict[str, Any]
+    async def _apply_captured_payment(
+        self, subscription: Subscription, payment: dict[str, Any]
     ) -> None:
-        subscription.status = remote.get("status", subscription.status)
-        current_end = remote.get("current_end")
-        if isinstance(current_end, int):
-            subscription.current_period_end = datetime.fromtimestamp(current_end, tz=UTC)
-        await self._session.flush()
+        if payment.get("status") != "captured":
+            return
+        payment_id = payment.get("id")
+        if not isinstance(payment_id, str):
+            return
+        if subscription.razorpay_payment_id == payment_id:
+            # Already applied — the confirm-checkout call and the webhook
+            # both reaching here for the same payment is expected, not an
+            # error; re-applying would extend the period a second time.
+            return
+        period_end = datetime.now(UTC) + timedelta(days=self._settings.billing_period_days)
+        await self._subscriptions.mark_paid(
+            subscription, razorpay_payment_id=payment_id, period_end=period_end
+        )

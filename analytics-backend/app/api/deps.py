@@ -17,7 +17,7 @@ from app.models.core.account import Account
 from app.models.core.property import Property
 from app.repositories.account_repo import AccountRepository
 from app.repositories.realtime_repo import RealtimeRepository
-from app.repositories.subscription_repo import GRANTS_ACCESS, SubscriptionRepository
+from app.repositories.subscription_repo import SubscriptionRepository, grants_access
 from app.repositories.workspace_repo import WorkspaceRepository
 from app.services.property_service import PropertyService
 
@@ -108,7 +108,7 @@ async def require_active_subscription(
         raise NotFoundError("No workspace found for this account.", code="workspace_not_found")
 
     subscription = await SubscriptionRepository(session).get_for_workspace(workspaces[0].id)
-    if subscription is None or subscription.status not in GRANTS_ACCESS:
+    if not grants_access(subscription):
         raise PaymentRequiredError(
             "An active subscription is required.", code="subscription_required"
         )
@@ -127,7 +127,7 @@ async def require_workspace_subscription(
     reintroduce the same bug for anyone who belongs to more than one
     workspace, so this checks the path's workspace_id directly instead."""
     subscription = await SubscriptionRepository(session).get_for_workspace(workspace_id)
-    if subscription is None or subscription.status not in GRANTS_ACCESS:
+    if not grants_access(subscription):
         raise PaymentRequiredError(
             "An active subscription is required.", code="subscription_required"
         )
